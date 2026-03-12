@@ -1,4 +1,4 @@
-﻿// Stock Oracle v3.1
+// Stock Oracle v3.1
 
 import { useState, useRef, useEffect, useCallback } from "react";
 
@@ -183,7 +183,8 @@ export default function StockOracle() {
   const [error, setError] = useState(null);
   const [scanHistory, setScanHistory] = useState([]);
   const [rateLimited, setRateLimited] = useState(false);
-  const [rateLimitMessage, setRateLimitMessage] = useState('');    const inputRef = useRef(null);
+  const [rateLimitMessage, setRateLimitMessage] = useState('');
+  const inputRef = useRef(null);
 
   // Check if user was rate limited in a previous session
   useEffect(() => {
@@ -749,7 +750,7 @@ ${jsonTemplate}`;
         const filtered = prev.filter(h => h.ticker !== parsed.ticker);
         return [entry, ...filtered].slice(0, 10);
       });
-       } catch (e) {
+    } catch (e) {
       clearInterval(pt);
       
       // Check if it's a rate limit error (429)
@@ -826,22 +827,55 @@ ${jsonTemplate}`;
 
         <div style={{ maxWidth: 540, margin: "0 auto 32px" }}>
           <div style={{ display: "flex", gap: 8, background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 16, padding: "8px 8px 8px 20px", animation: "glow 3s ease infinite" }}>
-            <input ref={inputRef} value={query} onChange={e => setQuery(e.target.value.toUpperCase())} onKeyDown={e => e.key === "Enter" && analyse()} placeholder="Any ticker: AAPL, BRK-B, BTC-USD..." maxLength={20} disabled={loading}
-              style={{ flex: 1, background: "none", border: "none", color: "#38bdf8", fontSize: 22, fontWeight: 500, fontFamily: "inherit", letterSpacing: "0.1em", caretColor: "#38bdf8" }} />
-            <button onClick={() => analyse()} disabled={loading || !query.trim()}
-              style={{ padding: "12px 24px", borderRadius: 11, border: "none", background: loading ? "rgba(255,255,255,0.05)" : "linear-gradient(135deg, #38bdf8, #6366f1)", color: loading ? "#334155" : "#fff", fontSize: 11, fontWeight: 700, letterSpacing: "0.12em", fontFamily: "inherit", transition: "all 0.2s", boxShadow: loading ? "none" : "0 0 20px rgba(56,189,248,0.3)" }}>
-              {loading ? "SCANNING" : "ANALYSE →"}
+            <input ref={inputRef} value={query} onChange={e => setQuery(e.target.value.toUpperCase())} onKeyDown={e => e.key === "Enter" && !rateLimited && analyse()} placeholder="Any ticker: AAPL, BRK-B, BTC-USD..." maxLength={20} disabled={loading || rateLimited}
+              style={{ flex: 1, background: "none", border: "none", color: rateLimited ? "#334155" : "#38bdf8", fontSize: 22, fontWeight: 500, fontFamily: "inherit", letterSpacing: "0.1em", caretColor: rateLimited ? "transparent" : "#38bdf8", opacity: rateLimited ? 0.5 : 1 }} />
+            <button onClick={() => analyse()} disabled={loading || !query.trim() || rateLimited}
+              style={{ padding: "12px 24px", borderRadius: 11, border: "none", background: loading || rateLimited ? "rgba(255,255,255,0.05)" : "linear-gradient(135deg, #38bdf8, #6366f1)", color: loading || rateLimited ? "#334155" : "#fff", fontSize: 11, fontWeight: 700, letterSpacing: "0.12em", fontFamily: "inherit", transition: "all 0.2s", boxShadow: loading || rateLimited ? "none" : "0 0 20px rgba(56,189,248,0.3)", cursor: rateLimited ? "not-allowed" : "pointer" }}>
+              {loading ? "SCANNING" : rateLimited ? "LIMIT REACHED" : "ANALYSE →"}
             </button>
           </div>
           <div style={{ display: "flex", gap: 6, flexWrap: "wrap", justifyContent: "center", marginTop: 14 }}>
-            {TICKERS.map(t => (
-              <button key={t} onClick={() => { setQuery(t); analyse(t); }} disabled={loading}
-                style={{ padding: "4px 12px", borderRadius: 100, border: "1px solid rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.03)", color: "#475569", fontSize: 10, fontFamily: "inherit", letterSpacing: "0.06em" }}>
+            {!rateLimited && TICKERS.map(t => (
+              <button key={t} onClick={() => { setQuery(t); analyse(t); }} disabled={loading || rateLimited}
+                style={{ padding: "4px 12px", borderRadius: 100, border: "1px solid rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.03)", color: rateLimited ? "#334155" : "#475569", fontSize: 10, fontFamily: "inherit", letterSpacing: "0.06em", cursor: rateLimited ? "not-allowed" : "pointer", opacity: rateLimited ? 0.5 : 1 }}>
                 {t}
               </button>
             ))}
           </div>
         </div>
+
+        {rateLimited && (
+          <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(3,11,22,0.95)", backdropFilter: "blur(8px)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center", padding: "20px" }}>
+            <div style={{ maxWidth: 400, background: "#0f172a", borderRadius: 24, padding: "32px", border: "1px solid #f59e0b40", boxShadow: "0 20px 40px rgba(0,0,0,0.5)", textAlign: "center" }}>
+              <div style={{ fontSize: 48, marginBottom: 16 }}>⏳</div>
+              <h2 style={{ fontSize: 24, fontWeight: 700, color: "#f59e0b", marginBottom: 12 }}>Daily Limit Reached</h2>
+              <p style={{ fontSize: 14, color: "#94a3b8", lineHeight: 1.7, marginBottom: 24 }}>
+                {rateLimitMessage || "You have used all 3 free analyses for today."}
+              </p>
+              <div style={{ background: "#1e293b", borderRadius: 12, padding: "16px", marginBottom: 24 }}>
+                <div style={{ fontSize: 12, color: "#64748b", marginBottom: 8 }}>Want unlimited access?</div>
+                <div style={{ fontSize: 20, fontWeight: 800, color: "#f59e0b", marginBottom: 4 }}>$9.99 / month</div>
+                <div style={{ fontSize: 11, color: "#475569" }}>Unlimited analyses, priority support, and more</div>
+              </div>
+              <div style={{ display: "flex", gap: 12 }}>
+                <button onClick={() => {
+                  setRateLimited(false);
+                }} style={{ flex: 1, padding: "12px", borderRadius: 10, background: "transparent", border: "1px solid #334155", color: "#94a3b8", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
+                  Close
+                </button>
+                <button onClick={() => {
+                  // Add your payment link here
+                  window.open("https://buy.stripe.com/your-link", "_blank");
+                }} style={{ flex: 1, padding: "12px", borderRadius: 10, background: "linear-gradient(135deg, #f59e0b, #f97316)", border: "none", color: "#fff", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
+                  Upgrade Now
+                </button>
+              </div>
+              <div style={{ fontSize: 10, color: "#334155", marginTop: 16 }}>
+                Resets in 24 hours from first analysis
+              </div>
+            </div>
+          </div>
+        )}
 
         {scanHistory.length > 0 && !result && !loading && (
           <div style={{ maxWidth: 540, margin: "-16px auto 28px" }}>
