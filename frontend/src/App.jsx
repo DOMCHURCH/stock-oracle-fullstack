@@ -749,11 +749,25 @@ ${jsonTemplate}`;
         const filtered = prev.filter(h => h.ticker !== parsed.ticker);
         return [entry, ...filtered].slice(0, 10);
       });
-    } catch (e) {
+       } catch (e) {
       clearInterval(pt);
-      const msg = e.message || "Unknown error";
-      setError(msg);
-      console.error("Stock Oracle error:", msg);
+      
+      // Check if it's a rate limit error (429)
+      if (e.message && (e.message.includes('429') || e.message.includes('limit reached'))) {
+        setRateLimited(true);
+        
+        // Calculate expiry (24 hours from now)
+        const expiryTime = Date.now() + (24 * 60 * 60 * 1000);
+        localStorage.setItem('stockOracleRateLimited', 'true');
+        localStorage.setItem('stockOracleRateLimitExpiry', expiryTime.toString());
+        
+        setRateLimitMessage('You have used all 3 analyses for today. Please try again tomorrow.');
+        setError('Daily limit reached. Please upgrade for unlimited access.');
+      } else {
+        const msg = e.message || "Unknown error";
+        setError(msg);
+        console.error("Stock Oracle error:", msg);
+      }
     } finally {
       clearInterval(pt); setLoading(false); setPhase("");
     }
