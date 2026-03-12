@@ -2,6 +2,7 @@ const path = require('path');
 const express = require('express');
 const cors = require('cors');
 const axios = require('axios');
+const rateLimit = require('express-rate-limit'); // Added
 
 // Load environment variables from .env file with absolute path
 require('dotenv').config({ path: path.join(__dirname, '.env') });
@@ -9,9 +10,31 @@ require('dotenv').config({ path: path.join(__dirname, '.env') });
 const app = express();
 const PORT = process.env.PORT || 3001;
 
-// Enable CORS
+// ========== RATE LIMITING ==========
+// Global limiter for all API routes (protects against general abuse)
+const apiLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 200, // limit each IP to 200 requests per windowMs
+  message: { error: 'Too many requests from this IP, please try again later.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+// Strict limiter for Groq analysis endpoint: 3 per day per IP
+const groqLimiter = rateLimit({
+  windowMs: 24 * 60 * 60 * 1000, // 24 hours
+  max: 3, // 3 analyses per day per IP
+  message: { error: 'Daily analysis limit reached (3 per day). Please try again tomorrow.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+// Enable CORS and JSON parsing (apply before rate limiting if you want CORS headers on rate-limited responses)
 app.use(cors());
 app.use(express.json());
+
+// Apply global rate limiting to all /api routes
+app.use('/api/', apiLimiter);
 
 // ========== STARTUP ENVIRONMENT CHECK ==========
 console.log('========== STOCK ORACLE BACKEND STARTUP ==========');
@@ -190,7 +213,7 @@ app.get('/api/news', async (req, res) => {
     const { q, pageSize } = req.query;
     if (!process.env.NEWSAPI_KEY) throw new Error('NEWSAPI_KEY not configured');
     const response = await axios.get(
-      `https://newsapi.org/v2/everything?q=${q}&sortBy=publishedAt&pageSize=${pageSize}&language=en&apiKey=${process.env.NEWSAPI_KEY}`
+      `https://newsapi.org/v2/everything?q=${encodeURIComponent(q)}&sortBy=publishedAt&pageSize=${pageSize}&language=en&apiKey=${process.env.NEWSAPI_KEY}`
     );
     res.json(response.data);
   } catch (error) {
@@ -214,8 +237,8 @@ app.get('/api/alpha/sentiment', async (req, res) => {
   }
 });
 
-// ========== GROQ PROXY ==========
-app.post('/api/groq/analyse', async (req, res) => {
+// ========== GROQ PROXY (with daily limit of 3) ==========
+app.post('/api/groq/analyse', groqLimiter, async (req, res) => {
   try {
     if (!process.env.GROQ_KEY) throw new Error('GROQ_KEY not configured');
     const response = await axios.post(
@@ -242,7 +265,7 @@ app.get('/api/sec/filings/:ticker', async (req, res) => {
     console.log(`Fetching SEC filings for ${ticker}...`);
     
     const headers = { 
-      'User-Agent': 'StockOracleApp contact@stockoracle.com' 
+      'User-Agent': 'StockOracleApp (contact@stockoracle.com)'
     };
     
     await delay(200);
@@ -336,8 +359,11 @@ app.get('/api/health', (req, res) => {
     time: new Date().toISOString()
   });
 });
-// ========== SERVER FRONTEND ==========
+
+// ========== SERVE FRONTEND STATIC FILES ==========
 app.use(express.static(path.join(__dirname, '../frontend/dist')));
+
+// Catch-all handler to serve frontend for any non-API route
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, '../frontend/dist/index.html'));
 });
