@@ -182,7 +182,29 @@ export default function StockOracle() {
   const [result, setResult] = useState(null);
   const [error, setError] = useState(null);
   const [scanHistory, setScanHistory] = useState([]);
-  const inputRef = useRef(null);
+  const [rateLimited, setRateLimited] = useState(false);
+  const [rateLimitMessage, setRateLimitMessage] = useState('');    const inputRef = useRef(null);
+
+  // Check if user was rate limited in a previous session
+  useEffect(() => {
+    const limited = localStorage.getItem('stockOracleRateLimited');
+    const limitExpiry = localStorage.getItem('stockOracleRateLimitExpiry');
+    
+    if (limited === 'true' && limitExpiry) {
+      const expiryTime = parseInt(limitExpiry);
+      const now = Date.now();
+      
+      if (now < expiryTime) {
+        setRateLimited(true);
+        const hoursLeft = Math.ceil((expiryTime - now) / (1000 * 60 * 60));
+        setRateLimitMessage(`You have used all 3 analyses for today. ${hoursLeft} hours remaining until reset.`);
+      } else {
+        // Expired, clear it
+        localStorage.removeItem('stockOracleRateLimited');
+        localStorage.removeItem('stockOracleRateLimitExpiry');
+      }
+    }
+  }, []);
 
   const PHASES = [
     "Connecting to market data feeds...",
