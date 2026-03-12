@@ -202,7 +202,7 @@ export default function StockOracle() {
     let pi = 0; setPhase(PHASES[0]);
     const pt = setInterval(() => { pi = Math.min(pi + 1, PHASES.length - 1); setPhase(PHASES[pi]); }, 2000);
     const today = new Date().toLocaleDateString("en-US", { weekday: "long", year: "numeric", month: "long", day: "numeric" });
-const API_BASE = "https://stock-oracle-backend.onrender.com/api"; 
+const API_BASE = "https://stock-oracle-fullstack.onrender.com/api"; 
 
     try {
       // ── STEP 1: Twelve Data — live price + 5yr monthly history ──────────
