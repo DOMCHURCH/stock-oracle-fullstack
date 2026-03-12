@@ -5,7 +5,7 @@ import { useState, useRef, useEffect, useCallback } from "react";
 const GROQ_MODEL = "llama-3.3-70b-versatile";
 const FEARGREED_URL = "https://api.alternative.me/fng/"; // Fear & Greed has no CORS issue — direct call ok
 
-const TICKERS = ["AAPL","NVDA","TSLA","MSFT","GOOGL","AMZN","META","AMD","JPM","NFLX"];
+const TICKERS = ["AAPL","NVDA","TSLA","MSFT","GOOGL","AMZN","META","AMD","JPM","BTC-USD","spy","NFLX"];
 
 const safeStr = (v) => v == null ? "" : String(v);
 
