@@ -612,7 +612,7 @@ ${jsonTemplate}`;
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           model: GROQ_MODEL,
-          max_tokens: 4000,
+          max_tokens: 8000,
           temperature: 0.3,
           messages: [{ role: "user", content: prompt }],
         }),
