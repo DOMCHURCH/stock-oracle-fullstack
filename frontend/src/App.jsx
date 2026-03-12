@@ -637,10 +637,12 @@ ${jsonTemplate}`;
         .replace(/:\s*'([^']*)'/g, ': "$1"') // single-quoted values
         .replace(/[\x00-\x1F\x7F]/g, ' '); // control characters
       // Try parsing, and if it fails truncate to last valid position
+      console.log('Raw JSON string (first 500 chars):', jsonStr.substring(0, 500));
       let parsed;
       try {
         parsed = JSON.parse(jsonStr);
       } catch(parseErr) {
+
         // Try to find the last valid JSON by truncating at problem areas
         const summaryEnd = jsonStr.lastIndexOf('"summary"');
         if (summaryEnd > 0) {
