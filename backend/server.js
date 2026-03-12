@@ -10,6 +10,9 @@ require('dotenv').config({ path: path.join(__dirname, '.env') });
 const app = express();
 const PORT = process.env.PORT || 3001;
 
+// Trust proxy - required for rate limiting on Render
+app.set('trust proxy', 1);
+
 // ========== RATE LIMITING ==========
 // Global limiter for all API routes (protects against general abuse)
 const apiLimiter = rateLimit({
