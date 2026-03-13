@@ -218,14 +218,36 @@ export default function StockOracle() {
     "Compiling intelligence report...",
   ];
 
-  const analyse = useCallback(async (ticker) => {
+   const analyse = useCallback(async (ticker) => {
     const t = (ticker || query).toUpperCase().trim();
     if (!t) return;
+    
+    // Check if user is rate limited BEFORE making any API calls
+    const limited = localStorage.getItem('stockOracleRateLimited');
+    const limitExpiry = localStorage.getItem('stockOracleRateLimitExpiry');
+    
+    if (limited === 'true' && limitExpiry) {
+      const expiryTime = parseInt(limitExpiry);
+      const now = Date.now();
+      
+      if (now < expiryTime) {
+        const hoursLeft = Math.ceil((expiryTime - now) / (1000 * 60 * 60));
+        setRateLimited(true);
+        setRateLimitMessage(`You have used all 3 analyses for today. ${hoursLeft} hours remaining until reset.`);
+        setError('Daily limit reached. Please try again tomorrow.');
+        return; // Exit early - NO API CALL IS MADE
+      } else {
+        // Expired, clear it
+        localStorage.removeItem('stockOracleRateLimited');
+        localStorage.removeItem('stockOracleRateLimitExpiry');
+      }
+    }
+    
     setLoading(true); setResult(null); setError(null);
     let pi = 0; setPhase(PHASES[0]);
     const pt = setInterval(() => { pi = Math.min(pi + 1, PHASES.length - 1); setPhase(PHASES[pi]); }, 2000);
     const today = new Date().toLocaleDateString("en-US", { weekday: "long", year: "numeric", month: "long", day: "numeric" });
-const API_BASE = "https://stock-oracle-fullstack.onrender.com/api"; 
+    const API_BASE = "https://stock-oracle-fullstack.onrender.com/api"; 
 
     try {
       // ── STEP 1: Twelve Data — live price + 5yr monthly history ──────────
