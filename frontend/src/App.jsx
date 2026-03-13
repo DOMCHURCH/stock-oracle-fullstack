@@ -846,7 +846,7 @@ ${jsonTemplate}`;
           </div>
         </div>
 
-        {rateLimited && (
+            {rateLimited && (
           <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(3,11,22,0.95)", backdropFilter: "blur(8px)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center", padding: "20px" }}>
             <div style={{ maxWidth: 400, background: "#0f172a", borderRadius: 24, padding: "32px", border: "1px solid #f59e0b40", boxShadow: "0 20px 40px rgba(0,0,0,0.5)", textAlign: "center" }}>
               <div style={{ fontSize: 48, marginBottom: 16 }}>⏳</div>
@@ -854,25 +854,12 @@ ${jsonTemplate}`;
               <p style={{ fontSize: 14, color: "#94a3b8", lineHeight: 1.7, marginBottom: 24 }}>
                 {rateLimitMessage || "You have used all 3 free analyses for today."}
               </p>
-              <div style={{ background: "#1e293b", borderRadius: 12, padding: "16px", marginBottom: 24 }}>
-                <div style={{ fontSize: 12, color: "#64748b", marginBottom: 8 }}>Want unlimited access?</div>
-                <div style={{ fontSize: 20, fontWeight: 800, color: "#f59e0b", marginBottom: 4 }}>$9.99 / month</div>
-                <div style={{ fontSize: 11, color: "#475569" }}>Unlimited analyses, priority support, and more</div>
-              </div>
-              <div style={{ display: "flex", gap: 12 }}>
-                <button onClick={() => {
-                  setRateLimited(false);
-                }} style={{ flex: 1, padding: "12px", borderRadius: 10, background: "transparent", border: "1px solid #334155", color: "#94a3b8", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
-                  Close
-                </button>
-                <button onClick={() => {
-                  // Add your payment link here
-                  window.open("https://buy.stripe.com/your-link", "_blank");
-                }} style={{ flex: 1, padding: "12px", borderRadius: 10, background: "linear-gradient(135deg, #f59e0b, #f97316)", border: "none", color: "#fff", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
-                  Upgrade Now
-                </button>
-              </div>
-              <div style={{ fontSize: 10, color: "#334155", marginTop: 16 }}>
+              <button onClick={() => {
+                setRateLimited(false);
+              }} style={{ width: "100%", padding: "12px", borderRadius: 10, background: "#f59e0b", border: "none", color: "#fff", fontSize: 13, fontWeight: 600, cursor: "pointer", marginBottom: 12 }}>
+                Close
+              </button>
+              <div style={{ fontSize: 10, color: "#334155", marginTop: 8 }}>
                 Resets in 24 hours from first analysis
               </div>
             </div>
