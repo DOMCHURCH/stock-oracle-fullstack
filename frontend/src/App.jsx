@@ -808,21 +808,231 @@ ${jsonTemplate}`;
     <div style={{ minHeight: "100vh", background: "#030b16", fontFamily: "'DM Mono', 'IBM Plex Mono', 'Courier New', monospace", color: "#e2e8f0", position: "relative", minWidth: "100vw" }}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=DM+Mono:ital,wght@0,300;0,400;0,500&display=swap');
-        html, body, #root { margin: 0 !important; padding: 0 !important; min-height: 100vh !important; background: #030b16 !important; display: block !important; place-items: unset !important; }
-        * { box-sizing: border-box; margin: 0; padding: 0; }
-        ::-webkit-scrollbar { width: 4px; } ::-webkit-scrollbar-thumb { background: #1e3a5f; border-radius: 2px; }
+        
+        /* Star animations */
+        @keyframes stars {
+          0% { transform: translateY(0) translateX(0); }
+          100% { transform: translateY(-2000px) translateX(500px); }
+        }
+        
+        @keyframes twinkle {
+          0% { opacity: 0.2; }
+          50% { opacity: 1; }
+          100% { opacity: 0.2; }
+        }
+        
+        @keyframes shootingStar {
+          0% { transform: translateX(0) translateY(0) rotate(45deg); opacity: 1; }
+          70% { opacity: 1; }
+          100% { transform: translateX(1000px) translateY(1000px) rotate(45deg); opacity: 0; }
+        }
+        
+        @keyframes nebulaPulse {
+          0% { opacity: 0.1; transform: scale(1); }
+          50% { opacity: 0.3; transform: scale(1.1); }
+          100% { opacity: 0.1; transform: scale(1); }
+        }
+        
+        html, body, #root { 
+          margin: 0 !important; 
+          padding: 0 !important; 
+          min-height: 100vh !important; 
+          background: #030b16 !important; 
+          display: block !important; 
+          place-items: unset !important; 
+          overflow-x: hidden;
+        }
+        
+        * { 
+          box-sizing: border-box; 
+          margin: 0; 
+          padding: 0; 
+        }
+        
+        ::-webkit-scrollbar { 
+          width: 4px; 
+        } 
+        ::-webkit-scrollbar-thumb { 
+          background: #1e3a5f; 
+          border-radius: 2px; 
+        }
+        
+        /* Base star field */
+        .stars {
+          position: fixed;
+          top: 0;
+          left: 0;
+          right: 0;
+          bottom: 0;
+          width: 100%;
+          height: 200%;
+          background: transparent url('https://www.transparenttextures.com/patterns/stardust.png') repeat top center;
+          z-index: 0;
+          pointer-events: none;
+          animation: stars 600s linear infinite;
+          opacity: 0.8;
+        }
+        
+        /* Second star layer for depth */
+        .stars2 {
+          position: fixed;
+          top: 0;
+          left: 0;
+          right: 0;
+          bottom: 0;
+          width: 100%;
+          height: 200%;
+          background: transparent url('https://www.transparenttextures.com/patterns/dark-matter.png') repeat top center;
+          z-index: 0;
+          pointer-events: none;
+          animation: stars 900s linear infinite reverse;
+          opacity: 0.4;
+        }
+        
+        /* Twinkling layer */
+        .twinkling {
+          position: fixed;
+          top: 0;
+          left: 0;
+          right: 0;
+          bottom: 0;
+          width: 100%;
+          height: 100%;
+          background: transparent url('https://www.transparenttextures.com/patterns/diagmonds.png') repeat top center;
+          z-index: 1;
+          pointer-events: none;
+          animation: twinkle 4s ease-in-out infinite;
+          opacity: 0.15;
+        }
+        
+        /* Nebula effect - purple */
+        .nebula1 {
+          position: fixed;
+          top: 10%;
+          left: -10%;
+          width: 800px;
+          height: 800px;
+          background: radial-gradient(circle, rgba(147, 51, 234, 0.15) 0%, transparent 70%);
+          border-radius: 50%;
+          filter: blur(60px);
+          z-index: 0;
+          pointer-events: none;
+          animation: nebulaPulse 15s ease-in-out infinite;
+        }
+        
+        /* Nebula effect - blue */
+        .nebula2 {
+          position: fixed;
+          bottom: 5%;
+          right: -5%;
+          width: 700px;
+          height: 700px;
+          background: radial-gradient(circle, rgba(56, 189, 248, 0.12) 0%, transparent 70%);
+          border-radius: 50%;
+          filter: blur(60px);
+          z-index: 0;
+          pointer-events: none;
+          animation: nebulaPulse 20s ease-in-out infinite reverse;
+        }
+        
+        /* Shooting star container */
+        .shooting-star {
+          position: fixed;
+          top: 20%;
+          left: -10%;
+          width: 150px;
+          height: 2px;
+          background: linear-gradient(90deg, rgba(255,255,255,0.8), rgba(255,255,255,0.2), transparent);
+          transform: rotate(45deg);
+          border-radius: 2px;
+          filter: blur(1px);
+          z-index: 2;
+          pointer-events: none;
+          animation: shootingStar 8s linear infinite;
+          opacity: 0;
+        }
+        
+        .shooting-star2 {
+          position: fixed;
+          top: 60%;
+          left: -20%;
+          width: 120px;
+          height: 2px;
+          background: linear-gradient(90deg, rgba(255,255,255,0.7), rgba(255,255,255,0.1), transparent);
+          transform: rotate(30deg);
+          border-radius: 2px;
+          filter: blur(1px);
+          z-index: 2;
+          pointer-events: none;
+          animation: shootingStar 12s linear 3s infinite;
+          opacity: 0;
+        }
+        
+        .shooting-star3 {
+          position: fixed;
+          top: 30%;
+          left: -30%;
+          width: 100px;
+          height: 2px;
+          background: linear-gradient(90deg, rgba(147, 51, 234, 0.9), rgba(147, 51, 234, 0.2), transparent);
+          transform: rotate(60deg);
+          border-radius: 2px;
+          filter: blur(1px);
+          z-index: 2;
+          pointer-events: none;
+          animation: shootingStar 10s linear 6s infinite;
+          opacity: 0;
+        }
+        
+        /* Individual stars (CSS generated) */
+        .star-field {
+          position: fixed;
+          top: 0;
+          left: 0;
+          width: 100%;
+          height: 100%;
+          z-index: 0;
+          pointer-events: none;
+        }
+        
+        .star {
+          position: absolute;
+          background: white;
+          border-radius: 50%;
+          box-shadow: 0 0 10px rgba(255,255,255,0.5);
+          animation: twinkle var(--duration) ease-in-out infinite;
+        }
+        
         @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.5} }
         @keyframes fadeUp { from{opacity:0;transform:translateY(24px)} to{opacity:1;transform:translateY(0)} }
         @keyframes glow { 0%,100%{box-shadow:0 0 20px rgba(56,189,248,0.15)} 50%{box-shadow:0 0 40px rgba(56,189,248,0.3)} }
         @keyframes scan { 0%{transform:translateY(-100vh)} 100%{transform:translateY(100vh)} }
         @keyframes spin { to{transform:rotate(360deg)} }
-        .fade-up { animation: fadeUp 0.6s cubic-bezier(0.34,1.56,0.64,1) forwards; }
-        input:focus { outline: none; } button { cursor: pointer; } button:active { transform: scale(0.97); }
+        
+        .fade-up { 
+          animation: fadeUp 0.6s cubic-bezier(0.34,1.56,0.64,1) forwards; 
+        }
+        
+        input:focus { 
+          outline: none; 
+        } 
+        button { 
+          cursor: pointer; 
+        } 
+        button:active { 
+          transform: scale(0.97); 
+        }
       `}</style>
 
-      <Orb x="10%" y="5%" color="#38bdf8" size={400} />
-      <Orb x="70%" y="20%" color="#6366f1" size={300} />
-      <Orb x="20%" y="60%" color="#10b981" size={250} />
+      {/* Enhanced space background */}
+      <div className="stars"></div>
+      <div className="stars2"></div>
+      <div className="twinkling"></div>
+      <div className="nebula1"></div>
+      <div className="nebula2"></div>
+      <div className="shooting-star"></div>
+      <div className="shooting-star2"></div>
+      <div className="shooting-star3"></div>
 
       <div style={{ position: "fixed", left: 0, right: 0, height: 1, zIndex: 99, pointerEvents: "none", background: "linear-gradient(90deg,transparent,rgba(56,189,248,0.2),transparent)", animation: "scan 6s linear infinite" }} />
 
