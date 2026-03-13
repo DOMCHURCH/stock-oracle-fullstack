@@ -2,7 +2,7 @@ const path = require('path');
 const express = require('express');
 const cors = require('cors');
 const axios = require('axios');
-const rateLimit = require('express-rate-limit'); // Added
+const rateLimit = require('express-rate-limit');
 
 // Load environment variables from .env file with absolute path
 require('dotenv').config({ path: path.join(__dirname, '.env') });
@@ -32,7 +32,7 @@ const groqLimiter = rateLimit({
   legacyHeaders: false,
 });
 
-// Enable CORS and JSON parsing (apply before rate limiting if you want CORS headers on rate-limited responses)
+// Enable CORS and JSON parsing
 app.use(cors());
 app.use(express.json());
 
@@ -93,7 +93,20 @@ app.get('/api/twelve/quote', async (req, res) => {
     res.json(response.data);
   } catch (error) {
     console.error('Twelve Data quote error:', error.message);
-    res.status(500).json({ error: error.message });
+    
+    if (error.response) {
+      // The request was made and the server responded with a status code outside of 2xx
+      return res.status(error.response.status).json({ 
+        error: error.response.data?.message || 'Twelve Data API error',
+        details: error.message
+      });
+    } else if (error.request) {
+      // The request was made but no response was received
+      return res.status(503).json({ error: 'Twelve Data service unavailable' });
+    } else {
+      // Something happened in setting up the request
+      return res.status(500).json({ error: error.message });
+    }
   }
 });
 
@@ -107,11 +120,40 @@ app.get('/api/twelve/time-series', async (req, res) => {
     res.json(response.data);
   } catch (error) {
     console.error('Twelve Data time-series error:', error.message);
-    res.status(500).json({ error: error.message });
+    
+    if (error.response) {
+      return res.status(error.response.status).json({ 
+        error: error.response.data?.message || 'Twelve Data API error',
+        details: error.message
+      });
+    } else if (error.request) {
+      return res.status(503).json({ error: 'Twelve Data service unavailable' });
+    } else {
+      return res.status(500).json({ error: error.message });
+    }
   }
 });
 
 // ========== FINNHUB PROXIES ==========
+const handleFinnhubError = (error, res) => {
+  console.error('Finnhub error:', error.message);
+  
+  if (error.response) {
+    // Finnhub returns 429 for rate limiting
+    if (error.response.status === 429) {
+      return res.status(429).json({ error: 'Finnhub API rate limit reached. Please try again later.' });
+    }
+    return res.status(error.response.status).json({ 
+      error: error.response.data?.error || 'Finnhub API error',
+      details: error.message
+    });
+  } else if (error.request) {
+    return res.status(503).json({ error: 'Finnhub service unavailable' });
+  } else {
+    return res.status(500).json({ error: error.message });
+  }
+};
+
 app.get('/api/finnhub/news', async (req, res) => {
   try {
     const { symbol, from, to } = req.query;
@@ -121,8 +163,7 @@ app.get('/api/finnhub/news', async (req, res) => {
     );
     res.json(response.data);
   } catch (error) {
-    console.error('Finnhub news error:', error.message);
-    res.status(500).json({ error: error.message });
+    handleFinnhubError(error, res);
   }
 });
 
@@ -135,8 +176,7 @@ app.get('/api/finnhub/recommendation', async (req, res) => {
     );
     res.json(response.data);
   } catch (error) {
-    console.error('Finnhub recommendation error:', error.message);
-    res.status(500).json({ error: error.message });
+    handleFinnhubError(error, res);
   }
 });
 
@@ -149,8 +189,7 @@ app.get('/api/finnhub/metric', async (req, res) => {
     );
     res.json(response.data);
   } catch (error) {
-    console.error('Finnhub metric error:', error.message);
-    res.status(500).json({ error: error.message });
+    handleFinnhubError(error, res);
   }
 });
 
@@ -163,8 +202,7 @@ app.get('/api/finnhub/insider', async (req, res) => {
     );
     res.json(response.data);
   } catch (error) {
-    console.error('Finnhub insider error:', error.message);
-    res.status(500).json({ error: error.message });
+    handleFinnhubError(error, res);
   }
 });
 
@@ -177,8 +215,7 @@ app.get('/api/finnhub/earnings', async (req, res) => {
     );
     res.json(response.data);
   } catch (error) {
-    console.error('Finnhub earnings error:', error.message);
-    res.status(500).json({ error: error.message });
+    handleFinnhubError(error, res);
   }
 });
 
@@ -191,8 +228,7 @@ app.get('/api/finnhub/profile', async (req, res) => {
     );
     res.json(response.data);
   } catch (error) {
-    console.error('Finnhub profile error:', error.message);
-    res.status(500).json({ error: error.message });
+    handleFinnhubError(error, res);
   }
 });
 
@@ -205,8 +241,7 @@ app.get('/api/finnhub/earnings-calendar', async (req, res) => {
     );
     res.json(response.data);
   } catch (error) {
-    console.error('Finnhub earnings calendar error:', error.message);
-    res.status(500).json({ error: error.message });
+    handleFinnhubError(error, res);
   }
 });
 
@@ -221,7 +256,21 @@ app.get('/api/news', async (req, res) => {
     res.json(response.data);
   } catch (error) {
     console.error('NewsAPI error:', error.message);
-    res.status(500).json({ error: error.message });
+    
+    if (error.response) {
+      // NewsAPI returns 429 for rate limiting
+      if (error.response.status === 429) {
+        return res.status(429).json({ error: 'NewsAPI rate limit reached. Please try again later.' });
+      }
+      return res.status(error.response.status).json({ 
+        error: error.response.data?.message || 'NewsAPI error',
+        details: error.message
+      });
+    } else if (error.request) {
+      return res.status(503).json({ error: 'NewsAPI service unavailable' });
+    } else {
+      return res.status(500).json({ error: error.message });
+    }
   }
 });
 
@@ -236,7 +285,21 @@ app.get('/api/alpha/sentiment', async (req, res) => {
     res.json(response.data);
   } catch (error) {
     console.error('Alpha Vantage error:', error.message);
-    res.status(500).json({ error: error.message });
+    
+    if (error.response) {
+      // Alpha Vantage has different rate limiting
+      if (error.response.status === 429) {
+        return res.status(429).json({ error: 'Alpha Vantage rate limit reached. Please try again later.' });
+      }
+      return res.status(error.response.status).json({ 
+        error: error.response.data?.Note || 'Alpha Vantage error',
+        details: error.message
+      });
+    } else if (error.request) {
+      return res.status(503).json({ error: 'Alpha Vantage service unavailable' });
+    } else {
+      return res.status(500).json({ error: error.message });
+    }
   }
 });
 
@@ -257,7 +320,25 @@ app.post('/api/groq/analyse', groqLimiter, async (req, res) => {
     res.json(response.data);
   } catch (error) {
     console.error('Groq error:', error.message);
-    res.status(500).json({ error: error.message });
+    
+    // Check if it's a rate limit error (429)
+    if (error.response && error.response.status === 429) {
+      return res.status(429).json({ 
+        error: 'Groq API rate limit reached. Please try again later.' 
+      });
+    }
+    
+    // Handle other response errors
+    if (error.response) {
+      return res.status(error.response.status).json({ 
+        error: error.response.data?.error?.message || 'Groq API error',
+        details: error.message
+      });
+    } else if (error.request) {
+      return res.status(503).json({ error: 'Groq service unavailable' });
+    } else {
+      return res.status(500).json({ error: error.message });
+    }
   }
 });
 
@@ -350,7 +431,21 @@ app.get('/api/sec/filings/:ticker', async (req, res) => {
     
   } catch (error) {
     console.error('SEC EDGAR error:', error.message);
-    res.status(500).json({ error: 'Failed to fetch SEC data', details: error.message });
+    
+    if (error.response) {
+      // SEC might rate limit
+      if (error.response.status === 429) {
+        return res.status(429).json({ error: 'SEC EDGAR rate limit reached. Please try again later.' });
+      }
+      return res.status(error.response.status).json({ 
+        error: 'Failed to fetch SEC data',
+        details: error.message
+      });
+    } else if (error.request) {
+      return res.status(503).json({ error: 'SEC EDGAR service unavailable' });
+    } else {
+      return res.status(500).json({ error: 'Failed to fetch SEC data', details: error.message });
+    }
   }
 });
 
