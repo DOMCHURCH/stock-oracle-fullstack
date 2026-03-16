@@ -646,7 +646,7 @@ TECHNICALS (CALCULATED — do not change these numbers):
   Trend: ${realTechnicals?.trend||"N/A"} | Support: $${realTechnicals?.support??"N/A"} | Resistance: $${realTechnicals?.resistance??"N/A"}
 ANALYST RATINGS (REAL): ${analystRatings?`Strong Buy:${analystRatings.strongBuy} Buy:${analystRatings.buy} Hold:${analystRatings.hold} Sell:${analystRatings.sell} StrongSell:${analystRatings.strongSell} (${analystRatings.total} analysts)`:"unavailable"}
 FUNDAMENTALS (REAL): ${fundamentals?`P/E:${fundamentals.peRatio?.toFixed(2)||"N/A"} EPS:$${fundamentals.eps?.toFixed(2)||"N/A"} Beta:${fundamentals.beta?.toFixed(2)||"N/A"} RevGrowth:${fundamentals.revenueGrowth?(fundamentals.revenueGrowth*100).toFixed(1)+"%":"N/A"} GrossMargin:${fundamentals.grossMargin?(fundamentals.grossMargin*100).toFixed(1)+"%":"N/A"}`:"unavailable"}
-SEC FILINGS: ${secFilings.length?secFilings.map(f=>`${f.type} ${f.date}`).join(", "):"none"}
+SEC FILINGS: ${secFilings.length?secFilings.map(f=>`${f.form} ${f.date}`).join(", "):"none"}
 INSIDER TRANSACTIONS (last 90 days): ${insiderTransactions.length?insiderTransactions.map(i=>`${i.name}: ${i.summary} (${i.action})`).join(" | "):"none found"}
 EARNINGS SURPRISES (last 4 quarters): ${earningsSurprises.length?earningsSurprises.map(e=>`Q${e.period}: actual $${e.actual} vs est $${e.estimate} (${e.beat?"BEAT":"MISS"} ${e.surprisePct}%)`).join(", "):"unavailable"}
 COMPANY PROFILE: ${companyProfile?`${companyProfile.name} | Sector: ${companyProfile.sector} | Employees: ${companyProfile.employees?.toLocaleString()||"N/A"} | Exchange: ${companyProfile.exchange} | IPO: ${companyProfile.ipo||"N/A"}`:"unavailable"}
