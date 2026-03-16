@@ -1024,18 +1024,35 @@ ${jsonTemplate}`;
         @keyframes scan { 0%{transform:translateY(-100vh)} 100%{transform:translateY(100vh)} }
         @keyframes spin { to{transform:rotate(360deg)} }
         
-        .fade-up { 
-          animation: fadeUp 0.6s cubic-bezier(0.34,1.56,0.64,1) forwards; 
-        }
-        
-        input:focus { 
-          outline: none; 
-        } 
-        button { 
-          cursor: pointer; 
-        } 
-        button:active { 
-          transform: scale(0.97); 
+        .fade-up { animation: fadeUp 0.6s cubic-bezier(0.34,1.56,0.64,1) forwards; }
+        input:focus { outline: none; }
+        button { cursor: pointer; }
+        button:active { transform: scale(0.97); }
+
+        .grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+        .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+        .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+        .grid-hero { display: grid; grid-template-columns: 1fr auto; gap: 20px; align-items: center; }
+        .main-pad { padding: 40px 40px 80px; }
+        .navbar-date { display: block; }
+
+        @media (max-width: 640px) {
+          .grid-4 { grid-template-columns: 1fr 1fr; }
+          .grid-2 { grid-template-columns: 1fr; }
+          .grid-3 { grid-template-columns: 1fr 1fr; }
+          .grid-hero { grid-template-columns: 1fr; }
+          .grid-hero-signal { display: flex; justify-content: center; margin-top: 8px; }
+          .main-pad { padding: 20px 16px 60px; }
+          .navbar-date { display: none; }
+          .prob-table-header { display: none; }
+          .prob-row { flex-direction: column; gap: 4px; align-items: flex-start !important; }
+          .search-box { padding: 6px 6px 6px 14px !important; }
+          .search-input { font-size: 16px !important; }
+          .hero-price { font-size: 28px !important; }
+          .hero-ticker { font-size: 28px !important; }
+          .section-pad { padding: 16px 16px !important; }
+          .report-pad { padding: 18px 16px !important; }
+          .vol-90-col { display: none; }
         }
       `}</style>
 
@@ -1048,7 +1065,7 @@ ${jsonTemplate}`;
 
       <div style={{ position: "fixed", left: 0, right: 0, height: 1, zIndex: 99, pointerEvents: "none", background: "linear-gradient(90deg,transparent,rgba(56,189,248,0.2),transparent)", animation: "scan 6s linear infinite" }} />
 
-      <div style={{ position: "sticky", top: 0, zIndex: 50, borderBottom: "1px solid rgba(255,255,255,0.05)", background: "rgba(3,11,22,0.9)", backdropFilter: "blur(24px)", padding: "14px 28px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+      <div style={{ position: "sticky", top: 0, zIndex: 50, borderBottom: "1px solid rgba(255,255,255,0.05)", background: "rgba(3,11,22,0.9)", backdropFilter: "blur(24px)", padding: "12px 16px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
           <div style={{ width: 36, height: 36, borderRadius: 10, background: "linear-gradient(135deg, #38bdf8 0%, #6366f1 100%)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16, fontWeight: 900, color: "#fff", boxShadow: "0 0 20px rgba(56,189,248,0.4)" }}>◈</div>
           <div>
@@ -1057,12 +1074,12 @@ ${jsonTemplate}`;
           </div>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <div style={{ fontSize: 10, color: "#1e3a5f", marginRight: 8 }}>{new Date().toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", year: "numeric" })}</div>
+          <div className="navbar-date" style={{ fontSize: 10, color: "#1e3a5f", marginRight: 8 }}>{new Date().toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", year: "numeric" })}</div>
           {!authLoading && (
             user ? (
               <>
                 <button onClick={() => setHistoryOpen(true)}
-                  style={{ display: "flex", alignItems: "center", gap: 6, padding: "7px 14px", borderRadius: 100, background: "rgba(56,189,248,0.08)", border: "1px solid rgba(56,189,248,0.2)", color: "#38bdf8", fontSize: 10, fontFamily: "inherit", letterSpacing: "0.08em", cursor: "pointer" }}>
+                  style={{ display: "flex", alignItems: "center", gap: 6, padding: "7px 12px", borderRadius: 100, background: "rgba(56,189,248,0.08)", border: "1px solid rgba(56,189,248,0.2)", color: "#38bdf8", fontSize: 10, fontFamily: "inherit", letterSpacing: "0.08em", cursor: "pointer", whiteSpace: "nowrap" }}>
                   ◷ HISTORY
                 </button>
                 <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 12px", borderRadius: 100, background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)" }}>
@@ -1084,7 +1101,7 @@ ${jsonTemplate}`;
 
       <HistorySidebar user={user} visible={historyOpen} onClose={() => setHistoryOpen(false)} onSelect={(r) => { setResult(r); }} />
 
-      <div style={{ maxWidth: 1200, margin: "0 auto", padding: "40px 40px 80px" }}>
+      <div style={{ maxWidth: 1200, margin: "0 auto" }} className="main-pad">
         {!result && !loading && (
           <div style={{ textAlign: "center", marginBottom: 52 }} className="fade-up">
             <div style={{ fontSize: 11, color: "#334155", letterSpacing: "0.3em", textTransform: "uppercase", marginBottom: 16 }}>Real Data · Live News · AI Predictions</div>
@@ -1097,8 +1114,9 @@ ${jsonTemplate}`;
         )}
 
         <div style={{ maxWidth: 540, margin: "0 auto 32px" }}>
-          <div style={{ display: "flex", gap: 8, background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 16, padding: "8px 8px 8px 20px", animation: "glow 3s ease infinite" }}>
+          <div className="search-box" style={{ display: "flex", gap: 8, background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 16, padding: "8px 8px 8px 20px", animation: "glow 3s ease infinite" }}>
             <input ref={inputRef} value={query} onChange={e => setQuery(e.target.value.toUpperCase())} onKeyDown={e => e.key === "Enter" && !rateLimited && analyse()} placeholder="Any ticker: AAPL, BRK-B, BTC-USD..." maxLength={20} disabled={loading || rateLimited}
+              className="search-input"
               style={{ flex: 1, background: "none", border: "none", color: rateLimited ? "#334155" : "#38bdf8", fontSize: 22, fontWeight: 500, fontFamily: "inherit", letterSpacing: "0.1em", caretColor: rateLimited ? "transparent" : "#38bdf8", opacity: rateLimited ? 0.5 : 1 }} />
             <button onClick={() => analyse()} disabled={loading || !query.trim() || rateLimited}
               style={{ padding: "12px 24px", borderRadius: 11, border: "none", background: loading || rateLimited ? "rgba(255,255,255,0.05)" : "linear-gradient(135deg, #38bdf8, #6366f1)", color: loading || rateLimited ? "#334155" : "#fff", fontSize: 11, fontWeight: 700, letterSpacing: "0.12em", fontFamily: "inherit", transition: "all 0.2s", boxShadow: loading || rateLimited ? "none" : "0 0 20px rgba(56,189,248,0.3)", cursor: rateLimited ? "not-allowed" : "pointer" }}>
@@ -1176,31 +1194,33 @@ ${jsonTemplate}`;
 
         {result && !loading && (
           <div className="fade-up">
-            <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 20, alignItems: "center", padding: "24px 28px", borderRadius: 20, background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)", marginBottom: 14 }}>
+            <div className="grid-hero section-pad" style={{ padding: "24px 28px", borderRadius: 20, background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)", marginBottom: 14 }}>
               <div>
                 <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6, flexWrap: "wrap" }}>
-                  <span style={{ fontSize: 38, fontWeight: 700, color: "#fff", letterSpacing: "-0.02em" }}>{result.ticker}</span>
+                  <span className="hero-ticker" style={{ fontSize: 38, fontWeight: 700, color: "#fff", letterSpacing: "-0.02em" }}>{result.ticker}</span>
                   {result.sector && <Ticker text={result.sector} color="#38bdf8" />}
                   {result.industry && <Ticker text={result.industry} color="#818cf8" />}
                 </div>
                 <div style={{ fontSize: 12, color: "#475569", marginBottom: 14 }}>{result.company}</div>
                 <div style={{ display: "flex", alignItems: "baseline", gap: 12, flexWrap: "wrap" }}>
-                  <span style={{ fontSize: 40, fontWeight: 700, color: "#fff", letterSpacing: "-0.02em" }}>{fmtPrice(result.currentPrice)}</span>
+                  <span className="hero-price" style={{ fontSize: 40, fontWeight: 700, color: "#fff", letterSpacing: "-0.02em" }}>{fmtPrice(result.currentPrice)}</span>
                   <span style={{ fontSize: 16, fontWeight: 600, color: priceColor }}>{up ? "▲" : "▼"} {fmtPrice(Math.abs(result.priceChange || 0))} ({fmtPct(result.priceChangePct)})</span>
                 </div>
                 <div style={{ fontSize: 10, color: "#334155", marginTop: 8 }}>Beta: {result.beta && result.beta !== 0 ? result.beta : "N/A"} · P/E: {result.peRatio && result.peRatio !== 0 ? result.peRatio : "N/A"} · EPS: {result.eps && result.eps !== 0 ? `$${result.eps}` : "N/A"} · Div: {result.dividendYield && result.dividendYield !== "0%" && result.dividendYield !== "0" ? result.dividendYield : "N/A"}</div>
               </div>
-              <SignalRing signal={result.signal} confidence={result.confidence} />
+              <div className="grid-hero-signal">
+                <SignalRing signal={result.signal} confidence={result.confidence} />
+              </div>
             </div>
 
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 10, marginBottom: 14 }}>
+            <div className="grid-4" style={{ marginBottom: 14 }}>
               <StatBox label="52W High" value={fmtPrice(result.week52High)} />
               <StatBox label="52W Low" value={fmtPrice(result.week52Low)} />
               <StatBox label="Market Cap" value={result.marketCap || "N/A"} />
               {result.avgVolume && !String(result.avgVolume).toLowerCase().includes("approx") && !String(result.avgVolume).toLowerCase().includes("million") && !String(result.avgVolume).toLowerCase().includes("shares") && <StatBox label="Avg Volume" value={result.avgVolume} />}
             </div>
 
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginBottom: 14 }}>
+            <div className="grid-2" style={{ marginBottom: 14 }}>
               <div style={{ padding: "20px 22px", borderRadius: 16, background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)" }}>
                 <div style={{ fontSize: 9, color: "#334155", letterSpacing: "0.18em", textTransform: "uppercase", marginBottom: 14 }}>5-Year Price History</div>
                 <div style={{ height: 80, overflow: "hidden" }}><MiniChart prices={histPrices} /></div>
@@ -1230,18 +1250,18 @@ ${jsonTemplate}`;
                   ];
                   return (
                     <div>
-                      <div style={{ display: "flex", justifyContent: "space-between", fontSize: 8, color: "#334155", letterSpacing: "0.1em", marginBottom: 6, padding: "0 4px" }}>
-                        <span>HORIZON</span><span>68% RANGE (1σ)</span><span>90% RANGE (1.6σ)</span><span>±%</span>
+                      <div className="prob-table-header" style={{ display: "flex", justifyContent: "space-between", fontSize: 8, color: "#334155", letterSpacing: "0.1em", marginBottom: 6, padding: "0 4px" }}>
+                        <span>HORIZON</span><span>68% RANGE (1σ)</span><span className="vol-90-col">90% RANGE (1.6σ)</span><span>±%</span>
                       </div>
                       {rows.map(({ label, d }) => (
-                        <div key={label} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "7px 8px", borderRadius: 7, marginBottom: 5, background: "rgba(255,255,255,0.025)", border: "1px solid rgba(255,255,255,0.05)" }}>
+                        <div key={label} className="prob-row" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "7px 8px", borderRadius: 7, marginBottom: 5, background: "rgba(255,255,255,0.025)", border: "1px solid rgba(255,255,255,0.05)" }}>
                           <span style={{ fontSize: 10, color: "#64748b", width: 52 }}>{label}</span>
                           <span style={{ fontSize: 10, color: "#94a3b8" }}>
                             <span style={{ color: "#ef4444" }}>{fmtPrice(d.low68)}</span>
                             <span style={{ color: "#334155", margin: "0 4px" }}>–</span>
                             <span style={{ color: "#10b981" }}>{fmtPrice(d.high68)}</span>
                           </span>
-                          <span style={{ fontSize: 10, color: "#64748b" }}>
+                          <span className="vol-90-col" style={{ fontSize: 10, color: "#64748b" }}>
                             <span style={{ color: "#ef4444" }}>{fmtPrice(d.low90)}</span>
                             <span style={{ color: "#334155", margin: "0 4px" }}>–</span>
                             <span style={{ color: "#10b981" }}>{fmtPrice(d.high90)}</span>
@@ -1268,7 +1288,7 @@ ${jsonTemplate}`;
 
             <div style={{ padding: "20px 22px", borderRadius: 16, marginBottom: 14, background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)" }}>
               <div style={{ fontSize: 9, color: "#334155", letterSpacing: "0.18em", textTransform: "uppercase", marginBottom: 16 }}>Technical Indicators</div>
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 16 }}>
+              <div className="grid-3">
                 {[
                   ["Trend", result.technicals?.trend, safeStr(result.technicals?.trend) === "Bullish" ? "#10b981" : safeStr(result.technicals?.trend) === "Bearish" ? "#ef4444" : "#f59e0b"],
                   ["RSI (14)", `${result.technicals?.rsi || "—"} · ${result.technicals?.rsiLabel || ""}`, result.technicals?.rsi > 70 ? "#ef4444" : result.technicals?.rsi < 30 ? "#10b981" : "#f59e0b"],
@@ -1290,7 +1310,7 @@ ${jsonTemplate}`;
               {result.news?.map((item, i) => <NewsCard key={i} item={item} delay={i * 100} />)}
             </div>
 
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 14 }}>
+            <div className="grid-2" style={{ marginBottom: 14 }}>
               <div style={{ padding: "18px 20px", borderRadius: 14, background: "rgba(16,185,129,0.04)", border: "1px solid rgba(16,185,129,0.15)" }}>
                 <div style={{ fontSize: 9, color: "#10b981", letterSpacing: "0.18em", textTransform: "uppercase", marginBottom: 12 }}>▲ Bullish Catalysts</div>
                 {result.catalysts?.bull?.map((c, i) => <div key={i} style={{ display: "flex", gap: 8, marginBottom: 8, fontSize: 12, color: "#94a3b8", lineHeight: 1.5 }}><span style={{ color: "#10b981", flexShrink: 0 }}>+</span>{typeof c === "object" ? JSON.stringify(c) : c}</div>)}
@@ -1307,7 +1327,7 @@ ${jsonTemplate}`;
                   <div style={{ fontSize: 9, color: "#334155", letterSpacing: "0.18em", textTransform: "uppercase" }}>Analyst Consensus · {result.analysts.count} analysts</div>
                   <div style={{ fontSize: 9, color: "#475569" }}>Real data via Finnhub</div>
                 </div>
-                <div style={{ display: "grid", gridTemplateColumns: result.analysts.avgTarget > 0 ? "repeat(4, 1fr)" : "1fr", gap: 16, marginBottom: 14 }}>
+                <div className="grid-4" style={{ marginBottom: 14 }}>
                   <StatBox label="Consensus" value={result.analysts.consensus} color="#10b981" />
                   {result.analysts.avgTarget > 0 && <StatBox label="Mean Target" value={fmtPrice(result.analysts.avgTarget)} />}
                   {result.analysts.avgTarget > 0 && <StatBox label="Upside" value={result.analysts?.upside ? `+${result.analysts.upside}%` : "N/A"} color="#10b981" />}
@@ -1337,7 +1357,7 @@ ${jsonTemplate}`;
             )}
 
             {/* Insider Transactions + Earnings Surprises + SEC Filings row */}
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 14, marginBottom: 14 }}>              
+            <div className="grid-3" style={{ marginBottom: 14 }}>              
 
 {/* Insider Transactions */}
               <div style={{ padding: "18px 20px", borderRadius: 14, background: "rgba(251,191,36,0.03)", border: "1px solid rgba(251,191,36,0.18)" }}>
