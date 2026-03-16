@@ -124,7 +124,7 @@ console.log('================================================\n');
 app.get('/api/auth/github', (req, res) => {
   const params = new URLSearchParams({
     client_id: GITHUB_CLIENT_ID,
-    redirect_uri: `${req.protocol}://${req.get('host')}/api/auth/github/callback`,
+    redirect_uri: `${process.env.BACKEND_URL || `https://${req.get('host')}`}/api/auth/github/callback`,
     scope: 'read:user',
   });
   res.redirect(`https://github.com/login/oauth/authorize?${params}`);
