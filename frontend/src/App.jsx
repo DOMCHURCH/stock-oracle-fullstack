@@ -1,6 +1,51 @@
-// Stock Oracle v3.1
+// Stock Oracle v3.2
 
 import { useState, useRef, useEffect, useCallback } from "react";
+
+const API_BASE = "https://stock-oracle-fullstack.onrender.com/api";
+
+// ========== AUTH HELPERS ==========
+const getToken = () => localStorage.getItem('so_token');
+const setToken = (t) => t ? localStorage.setItem('so_token', t) : localStorage.removeItem('so_token');
+const authHeaders = () => ({ 'Content-Type': 'application/json', ...(getToken() ? { Authorization: `Bearer ${getToken()}` } : {}) });
+
+function useAuth() {
+  const [user, setUser] = useState(null);
+  const [authLoading, setAuthLoading] = useState(true);
+
+  useEffect(() => {
+    // Pick up token from GitHub OAuth redirect
+    const params = new URLSearchParams(window.location.search);
+    const token = params.get('token');
+    const authErr = params.get('auth');
+    if (token) {
+      setToken(token);
+      window.history.replaceState({}, '', window.location.pathname);
+    } else if (authErr) {
+      window.history.replaceState({}, '', window.location.pathname);
+    }
+  }, []);
+
+  useEffect(() => {
+    const tok = getToken();
+    if (!tok) { setAuthLoading(false); return; }
+    fetch(`${API_BASE}/auth/me`, { headers: authHeaders() })
+      .then(r => r.ok ? r.json() : null)
+      .then(u => { setUser(u); setAuthLoading(false); })
+      .catch(() => setAuthLoading(false));
+  }, []);
+
+  const login = () => {
+    window.location.href = `${API_BASE}/auth/github`;
+  };
+
+  const logout = () => {
+    setToken(null);
+    setUser(null);
+  };
+
+  return { user, authLoading, login, logout };
+}
 
 const GROQ_MODEL = "llama-3.3-70b-versatile";
 const FEARGREED_URL = "https://api.alternative.me/fng/"; // Fear & Greed has no CORS issue — direct call ok
@@ -175,7 +220,90 @@ function MiniChart({ prices }) {
   return <canvas ref={canvasRef} style={{ display: "block" }} />;
 }
 
+function HistorySidebar({ user, onSelect, onClose, visible }) {
+  const [items, setItems] = useState([]);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (!user || !visible) return;
+    setLoading(true);
+    fetch(`${API_BASE}/history`, { headers: authHeaders() })
+      .then(r => r.ok ? r.json() : [])
+      .then(d => { setItems(d); setLoading(false); })
+      .catch(() => setLoading(false));
+  }, [user, visible]);
+
+  const loadEntry = async (id) => {
+    const r = await fetch(`${API_BASE}/history/${id}`, { headers: authHeaders() });
+    if (r.ok) { const d = await r.json(); onSelect(d.result); onClose(); }
+  };
+
+  const deleteEntry = async (e, id) => {
+    e.stopPropagation();
+    await fetch(`${API_BASE}/history/${id}`, { method: 'DELETE', headers: authHeaders() });
+    setItems(prev => prev.filter(i => i.id !== id));
+  };
+
+  const sigColor = (s) => ({ STRONG_BUY: "#10b981", BUY: "#34d399", HOLD: "#f59e0b", SELL: "#f87171", STRONG_SELL: "#ef4444" }[s] || "#64748b");
+
+  return (
+    <>
+      {/* Backdrop */}
+      {visible && <div onClick={onClose} style={{ position: "fixed", inset: 0, zIndex: 200, background: "rgba(0,0,0,0.4)", backdropFilter: "blur(4px)" }} />}
+      {/* Drawer */}
+      <div style={{
+        position: "fixed", top: 0, right: 0, bottom: 0, width: 340,
+        background: "#080f1e", borderLeft: "1px solid rgba(255,255,255,0.07)",
+        zIndex: 201, transform: visible ? "translateX(0)" : "translateX(100%)",
+        transition: "transform 0.3s cubic-bezier(0.34,1.56,0.64,1)",
+        display: "flex", flexDirection: "column",
+      }}>
+        <div style={{ padding: "20px 20px 16px", borderBottom: "1px solid rgba(255,255,255,0.06)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <div>
+            <div style={{ fontSize: 11, fontWeight: 700, color: "#fff", letterSpacing: "0.12em" }}>SCAN HISTORY</div>
+            <div style={{ fontSize: 9, color: "#334155", marginTop: 2 }}>Saved to your account</div>
+          </div>
+          <button onClick={onClose} style={{ background: "none", border: "none", color: "#475569", fontSize: 18, padding: "4px 8px", borderRadius: 6 }}>✕</button>
+        </div>
+        <div style={{ flex: 1, overflowY: "auto", padding: "12px 16px" }}>
+          {loading && <div style={{ textAlign: "center", color: "#334155", fontSize: 11, padding: "40px 0" }}>Loading...</div>}
+          {!loading && items.length === 0 && (
+            <div style={{ textAlign: "center", color: "#334155", fontSize: 11, padding: "40px 0", lineHeight: 1.8 }}>
+              No history yet.<br />Run an analysis to save it here.
+            </div>
+          )}
+          {items.map(item => (
+            <div key={item.id} onClick={() => loadEntry(item.id)}
+              style={{ padding: "12px 14px", borderRadius: 10, marginBottom: 8, background: "rgba(255,255,255,0.025)", border: "1px solid rgba(255,255,255,0.06)", cursor: "pointer", transition: "background 0.15s" }}
+              onMouseEnter={e => e.currentTarget.style.background = "rgba(255,255,255,0.05)"}
+              onMouseLeave={e => e.currentTarget.style.background = "rgba(255,255,255,0.025)"}
+            >
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 6 }}>
+                <div>
+                  <span style={{ fontSize: 14, fontWeight: 700, color: "#fff", letterSpacing: "0.06em" }}>{item.ticker}</span>
+                  <span style={{ fontSize: 10, color: "#475569", marginLeft: 8 }}>{item.company}</span>
+                </div>
+                <button onClick={e => deleteEntry(e, item.id)} style={{ background: "none", border: "none", color: "#1e3a5f", fontSize: 13, padding: "0 4px", borderRadius: 4 }}
+                  onMouseEnter={e => e.currentTarget.style.color = "#ef4444"}
+                  onMouseLeave={e => e.currentTarget.style.color = "#1e3a5f"}
+                >✕</button>
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <span style={{ fontSize: 9, fontWeight: 800, color: sigColor(item.signal), background: sigColor(item.signal) + "18", padding: "2px 8px", borderRadius: 100, letterSpacing: "0.08em" }}>{item.signal?.replace("_", " ")}</span>
+                <span style={{ fontSize: 12, color: "#94a3b8" }}>${parseFloat(item.price || 0).toFixed(2)}</span>
+                <span style={{ fontSize: 9, color: "#334155" }}>{new Date(item.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric" })}</span>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </>
+  );
+}
+
 export default function StockOracle() {
+  const { user, authLoading, login, logout } = useAuth();
+  const [historyOpen, setHistoryOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [loading, setLoading] = useState(false);
   const [phase, setPhase] = useState("");
@@ -247,7 +375,6 @@ export default function StockOracle() {
     let pi = 0; setPhase(PHASES[0]);
     const pt = setInterval(() => { pi = Math.min(pi + 1, PHASES.length - 1); setPhase(PHASES[pi]); }, 2000);
     const today = new Date().toLocaleDateString("en-US", { weekday: "long", year: "numeric", month: "long", day: "numeric" });
-    const API_BASE = "https://stock-oracle-fullstack.onrender.com/api"; 
 
     try {
       // ── STEP 1: Twelve Data — live price + 5yr monthly history ──────────
@@ -769,6 +896,14 @@ ${jsonTemplate}`;
         parsed.marketCap = "$" + parsed.marketCap;
       }
       setResult(parsed);
+      // Save to backend history if logged in
+      if (getToken()) {
+        fetch(`${API_BASE}/history`, {
+          method: 'POST',
+          headers: authHeaders(),
+          body: JSON.stringify({ ticker: parsed.ticker, company: parsed.company, signal: parsed.signal, confidence: parsed.confidence, price: parsed.currentPrice, result: parsed }),
+        }).catch(() => {});
+      }
       setScanHistory(prev => {
         const entry = { ticker: parsed.ticker, company: parsed.company, signal: parsed.signal, confidence: parsed.confidence, price: parsed.currentPrice, time: new Date().toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" }) };
         const filtered = prev.filter(h => h.ticker !== parsed.ticker);
@@ -809,30 +944,65 @@ ${jsonTemplate}`;
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=DM+Mono:ital,wght@0,300;0,400;0,500&display=swap');
         
-        /* Star animations */
-        @keyframes stars {
-          0% { transform: translateY(0) translateX(0); }
-          100% { transform: translateY(-2000px) translateX(500px); }
+        /* Animated grid */
+        @keyframes gridMove {
+          0% { transform: translateY(0); }
+          100% { transform: translateY(60px); }
         }
-        
-        @keyframes twinkle {
-          0% { opacity: 0.2; }
-          50% { opacity: 1; }
-          100% { opacity: 0.2; }
+
+        @keyframes aurora1 {
+          0%, 100% { transform: translate(0%, 0%) scale(1); opacity: 0.18; }
+          33% { transform: translate(8%, -5%) scale(1.12); opacity: 0.28; }
+          66% { transform: translate(-5%, 8%) scale(0.95); opacity: 0.15; }
         }
-        
-        @keyframes shootingStar {
-          0% { transform: translateX(0) translateY(0) rotate(45deg); opacity: 1; }
-          70% { opacity: 1; }
-          100% { transform: translateX(1000px) translateY(1000px) rotate(45deg); opacity: 0; }
+        @keyframes aurora2 {
+          0%, 100% { transform: translate(0%, 0%) scale(1); opacity: 0.14; }
+          33% { transform: translate(-10%, 6%) scale(1.08); opacity: 0.22; }
+          66% { transform: translate(6%, -10%) scale(1.15); opacity: 0.1; }
         }
-        
-        @keyframes nebulaPulse {
-          0% { opacity: 0.1; transform: scale(1); }
-          50% { opacity: 0.3; transform: scale(1.1); }
-          100% { opacity: 0.1; transform: scale(1); }
+        @keyframes aurora3 {
+          0%, 100% { transform: translate(0%, 0%) scale(1.05); opacity: 0.1; }
+          50% { transform: translate(5%, 5%) scale(0.95); opacity: 0.2; }
         }
-        
+
+        .bg-grid {
+          position: fixed; inset: 0; z-index: 0; pointer-events: none;
+          background-image:
+            linear-gradient(rgba(56,189,248,0.03) 1px, transparent 1px),
+            linear-gradient(90deg, rgba(56,189,248,0.03) 1px, transparent 1px);
+          background-size: 60px 60px;
+          animation: gridMove 20s linear infinite;
+          mask-image: radial-gradient(ellipse 80% 80% at 50% 50%, black 40%, transparent 100%);
+        }
+
+        .aurora1 {
+          position: fixed; top: -20%; left: -20%; width: 80vw; height: 80vh;
+          background: radial-gradient(ellipse at center, rgba(99,102,241,0.22) 0%, rgba(56,189,248,0.1) 40%, transparent 70%);
+          border-radius: 50%; filter: blur(70px); z-index: 0; pointer-events: none;
+          animation: aurora1 22s ease-in-out infinite;
+        }
+        .aurora2 {
+          position: fixed; bottom: -20%; right: -20%; width: 70vw; height: 70vh;
+          background: radial-gradient(ellipse at center, rgba(56,189,248,0.18) 0%, rgba(99,102,241,0.08) 40%, transparent 70%);
+          border-radius: 50%; filter: blur(80px); z-index: 0; pointer-events: none;
+          animation: aurora2 28s ease-in-out infinite;
+        }
+        .aurora3 {
+          position: fixed; top: 30%; left: 30%; width: 50vw; height: 50vh;
+          background: radial-gradient(ellipse at center, rgba(168,85,247,0.1) 0%, transparent 60%);
+          border-radius: 50%; filter: blur(100px); z-index: 0; pointer-events: none;
+          animation: aurora3 35s ease-in-out infinite;
+        }
+
+        /* Dot grid overlay */
+        .dot-overlay {
+          position: fixed; inset: 0; z-index: 0; pointer-events: none;
+          background-image: radial-gradient(rgba(56,189,248,0.12) 1px, transparent 1px);
+          background-size: 32px 32px;
+          opacity: 0.4;
+          mask-image: radial-gradient(ellipse 90% 90% at 50% 50%, black 20%, transparent 100%);
+        }
+
         html, body, #root { 
           margin: 0 !important; 
           padding: 0 !important; 
@@ -843,165 +1013,10 @@ ${jsonTemplate}`;
           overflow-x: hidden;
         }
         
-        * { 
-          box-sizing: border-box; 
-          margin: 0; 
-          padding: 0; 
-        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
         
-        ::-webkit-scrollbar { 
-          width: 4px; 
-        } 
-        ::-webkit-scrollbar-thumb { 
-          background: #1e3a5f; 
-          border-radius: 2px; 
-        }
-        
-        /* Base star field */
-        .stars {
-          position: fixed;
-          top: 0;
-          left: 0;
-          right: 0;
-          bottom: 0;
-          width: 100%;
-          height: 200%;
-          background: transparent url('https://www.transparenttextures.com/patterns/stardust.png') repeat top center;
-          z-index: 0;
-          pointer-events: none;
-          animation: stars 600s linear infinite;
-          opacity: 0.8;
-        }
-        
-        /* Second star layer for depth */
-        .stars2 {
-          position: fixed;
-          top: 0;
-          left: 0;
-          right: 0;
-          bottom: 0;
-          width: 100%;
-          height: 200%;
-          background: transparent url('https://www.transparenttextures.com/patterns/dark-matter.png') repeat top center;
-          z-index: 0;
-          pointer-events: none;
-          animation: stars 900s linear infinite reverse;
-          opacity: 0.4;
-        }
-        
-        /* Twinkling layer */
-        .twinkling {
-          position: fixed;
-          top: 0;
-          left: 0;
-          right: 0;
-          bottom: 0;
-          width: 100%;
-          height: 100%;
-          background: transparent url('https://www.transparenttextures.com/patterns/diagmonds.png') repeat top center;
-          z-index: 1;
-          pointer-events: none;
-          animation: twinkle 4s ease-in-out infinite;
-          opacity: 0.15;
-        }
-        
-        /* Nebula effect - purple */
-        .nebula1 {
-          position: fixed;
-          top: 10%;
-          left: -10%;
-          width: 800px;
-          height: 800px;
-          background: radial-gradient(circle, rgba(147, 51, 234, 0.15) 0%, transparent 70%);
-          border-radius: 50%;
-          filter: blur(60px);
-          z-index: 0;
-          pointer-events: none;
-          animation: nebulaPulse 15s ease-in-out infinite;
-        }
-        
-        /* Nebula effect - blue */
-        .nebula2 {
-          position: fixed;
-          bottom: 5%;
-          right: -5%;
-          width: 700px;
-          height: 700px;
-          background: radial-gradient(circle, rgba(56, 189, 248, 0.12) 0%, transparent 70%);
-          border-radius: 50%;
-          filter: blur(60px);
-          z-index: 0;
-          pointer-events: none;
-          animation: nebulaPulse 20s ease-in-out infinite reverse;
-        }
-        
-        /* Shooting star container */
-        .shooting-star {
-          position: fixed;
-          top: 20%;
-          left: -10%;
-          width: 150px;
-          height: 2px;
-          background: linear-gradient(90deg, rgba(255,255,255,0.8), rgba(255,255,255,0.2), transparent);
-          transform: rotate(45deg);
-          border-radius: 2px;
-          filter: blur(1px);
-          z-index: 2;
-          pointer-events: none;
-          animation: shootingStar 8s linear infinite;
-          opacity: 0;
-        }
-        
-        .shooting-star2 {
-          position: fixed;
-          top: 60%;
-          left: -20%;
-          width: 120px;
-          height: 2px;
-          background: linear-gradient(90deg, rgba(255,255,255,0.7), rgba(255,255,255,0.1), transparent);
-          transform: rotate(30deg);
-          border-radius: 2px;
-          filter: blur(1px);
-          z-index: 2;
-          pointer-events: none;
-          animation: shootingStar 12s linear 3s infinite;
-          opacity: 0;
-        }
-        
-        .shooting-star3 {
-          position: fixed;
-          top: 30%;
-          left: -30%;
-          width: 100px;
-          height: 2px;
-          background: linear-gradient(90deg, rgba(147, 51, 234, 0.9), rgba(147, 51, 234, 0.2), transparent);
-          transform: rotate(60deg);
-          border-radius: 2px;
-          filter: blur(1px);
-          z-index: 2;
-          pointer-events: none;
-          animation: shootingStar 10s linear 6s infinite;
-          opacity: 0;
-        }
-        
-        /* Individual stars (CSS generated) */
-        .star-field {
-          position: fixed;
-          top: 0;
-          left: 0;
-          width: 100%;
-          height: 100%;
-          z-index: 0;
-          pointer-events: none;
-        }
-        
-        .star {
-          position: absolute;
-          background: white;
-          border-radius: 50%;
-          box-shadow: 0 0 10px rgba(255,255,255,0.5);
-          animation: twinkle var(--duration) ease-in-out infinite;
-        }
+        ::-webkit-scrollbar { width: 4px; } 
+        ::-webkit-scrollbar-thumb { background: #1e3a5f; border-radius: 2px; }
         
         @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.5} }
         @keyframes fadeUp { from{opacity:0;transform:translateY(24px)} to{opacity:1;transform:translateY(0)} }
@@ -1024,15 +1039,12 @@ ${jsonTemplate}`;
         }
       `}</style>
 
-      {/* Enhanced space background */}
-      <div className="stars"></div>
-      <div className="stars2"></div>
-      <div className="twinkling"></div>
-      <div className="nebula1"></div>
-      <div className="nebula2"></div>
-      <div className="shooting-star"></div>
-      <div className="shooting-star2"></div>
-      <div className="shooting-star3"></div>
+      {/* Aurora background */}
+      <div className="aurora1" />
+      <div className="aurora2" />
+      <div className="aurora3" />
+      <div className="bg-grid" />
+      <div className="dot-overlay" />
 
       <div style={{ position: "fixed", left: 0, right: 0, height: 1, zIndex: 99, pointerEvents: "none", background: "linear-gradient(90deg,transparent,rgba(56,189,248,0.2),transparent)", animation: "scan 6s linear infinite" }} />
 
@@ -1041,11 +1053,36 @@ ${jsonTemplate}`;
           <div style={{ width: 36, height: 36, borderRadius: 10, background: "linear-gradient(135deg, #38bdf8 0%, #6366f1 100%)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16, fontWeight: 900, color: "#fff", boxShadow: "0 0 20px rgba(56,189,248,0.4)" }}>◈</div>
           <div>
             <div style={{ fontSize: 15, fontWeight: 700, color: "#fff", letterSpacing: "0.12em" }}>STOCK ORACLE</div>
-            <div style={{ fontSize: 9, color: "#334155", letterSpacing: "0.2em" }}>AI MARKET INTELLIGENCE · v3.0</div>
+            <div style={{ fontSize: 9, color: "#334155", letterSpacing: "0.2em" }}>AI MARKET INTELLIGENCE · v3.2</div>
           </div>
         </div>
-        <div style={{ fontSize: 10, color: "#1e3a5f" }}>{new Date().toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", year: "numeric" })}</div>
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <div style={{ fontSize: 10, color: "#1e3a5f", marginRight: 8 }}>{new Date().toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", year: "numeric" })}</div>
+          {!authLoading && (
+            user ? (
+              <>
+                <button onClick={() => setHistoryOpen(true)}
+                  style={{ display: "flex", alignItems: "center", gap: 6, padding: "7px 14px", borderRadius: 100, background: "rgba(56,189,248,0.08)", border: "1px solid rgba(56,189,248,0.2)", color: "#38bdf8", fontSize: 10, fontFamily: "inherit", letterSpacing: "0.08em", cursor: "pointer" }}>
+                  ◷ HISTORY
+                </button>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 12px", borderRadius: 100, background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)" }}>
+                  {user.avatar && <img src={user.avatar} alt="" style={{ width: 22, height: 22, borderRadius: "50%" }} />}
+                  <span style={{ fontSize: 10, color: "#94a3b8", letterSpacing: "0.06em" }}>{user.username}</span>
+                  <button onClick={logout} style={{ background: "none", border: "none", color: "#334155", fontSize: 10, fontFamily: "inherit", cursor: "pointer", padding: "0 2px" }}>✕</button>
+                </div>
+              </>
+            ) : (
+              <button onClick={login}
+                style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 16px", borderRadius: 100, background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.12)", color: "#94a3b8", fontSize: 10, fontFamily: "inherit", letterSpacing: "0.08em", cursor: "pointer" }}>
+                <svg height="16" width="16" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+                SIGN IN WITH GITHUB
+              </button>
+            )
+          )}
+        </div>
       </div>
+
+      <HistorySidebar user={user} visible={historyOpen} onClose={() => setHistoryOpen(false)} onSelect={(r) => { setResult(r); }} />
 
       <div style={{ maxWidth: 1200, margin: "0 auto", padding: "40px 40px 80px" }}>
         {!result && !loading && (
