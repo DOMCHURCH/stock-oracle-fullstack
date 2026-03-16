@@ -108,7 +108,12 @@ const groqLimiter = rateLimit({
   legacyHeaders: false,
 });
 
-app.use('/api/', apiLimiter);
+// Only rate-limit the expensive external proxy routes, not auth/history
+app.use('/api/twelve/', apiLimiter);
+app.use('/api/finnhub/', apiLimiter);
+app.use('/api/news', apiLimiter);
+app.use('/api/alpha/', apiLimiter);
+app.use('/api/sec/', apiLimiter);
 
 // ========== STARTUP CHECK ==========
 console.log('========== STOCK ORACLE BACKEND STARTUP ==========');
