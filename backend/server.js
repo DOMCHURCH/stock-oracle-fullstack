@@ -5,6 +5,9 @@ const axios = require('axios');
 const rateLimit = require('express-rate-limit');
 const Database = require('better-sqlite3');
 const jwt = require('jsonwebtoken');
+const crypto = require('crypto');
+
+const cookieParser = require('cookie-parser');
 
 require('dotenv').config({ path: path.join(__dirname, '.env') });
 
@@ -41,6 +44,12 @@ db.exec(`
     created_at TEXT DEFAULT (datetime('now')),
     FOREIGN KEY (user_id) REFERENCES users(id)
   );
+
+  CREATE TABLE IF NOT EXISTS rate_limits (
+    key TEXT PRIMARY KEY,
+    count INTEGER NOT NULL DEFAULT 0,
+    window_start TEXT NOT NULL
+  );
 `);
 
 // Prepared statements
@@ -65,7 +74,85 @@ const stmts = {
   `),
   getHistoryEntry: db.prepare('SELECT * FROM history WHERE id = ? AND user_id = ?'),
   deleteHistoryEntry: db.prepare('DELETE FROM history WHERE id = ? AND user_id = ?'),
+  getRateLimit: db.prepare('SELECT * FROM rate_limits WHERE key = ?'),
+  upsertRateLimit: db.prepare(`
+    INSERT INTO rate_limits (key, count, window_start)
+    VALUES (@key, @count, @window_start)
+    ON CONFLICT(key) DO UPDATE SET count = excluded.count, window_start = excluded.window_start
+  `),
 };
+
+// ========== CUSTOM GROQ RATE LIMITER ==========
+// Per-user (JWT) when logged in, per-cookie (anonymous ID) when not.
+// Cookie persists 365 days so it works across mobile/desktop sessions.
+
+function getRateLimitKey(req, res) {
+  // If logged in, use user ID
+  const auth = req.headers.authorization;
+  if (auth && auth.startsWith('Bearer ')) {
+    try {
+      const payload = jwt.verify(auth.slice(7), JWT_SECRET);
+      return { key: `user:${payload.userId}`, scope: 'account' };
+    } catch {}
+  }
+  // Use persistent anonymous cookie ID
+  let anonId = req.cookies?.so_anon_id;
+  if (!anonId) {
+    anonId = crypto.randomUUID();
+    res.cookie('so_anon_id', anonId, {
+      maxAge: 365 * 24 * 60 * 60 * 1000,
+      httpOnly: true,
+      sameSite: 'none',
+      secure: true,
+    });
+  }
+  return { key: `anon:${anonId}`, scope: 'device' };
+}
+
+function getTodayWindowStart() {
+  const d = new Date();
+  d.setHours(0, 0, 0, 0);
+  return d.toISOString();
+}
+
+function groqRateLimit(req, res, next) {
+  const { key } = getRateLimitKey(req, res);
+  const windowStr = getTodayWindowStart();
+  const row = stmts.getRateLimit.get(key);
+
+  if (row && row.window_start === windowStr) {
+    if (row.count >= 3) {
+      const resetTime = new Date(windowStr);
+      resetTime.setDate(resetTime.getDate() + 1);
+      return res.status(429).json({
+        error: 'Daily analysis limit reached (3 per day). Please try again tomorrow.',
+        resetsAt: resetTime.toISOString(),
+      });
+    }
+    stmts.upsertRateLimit.run({ key, count: row.count + 1, window_start: windowStr });
+  } else {
+    stmts.upsertRateLimit.run({ key, count: 1, window_start: windowStr });
+  }
+  next();
+}
+
+function groqRateLimitStatus(req, res) {
+  const { key, scope } = getRateLimitKey(req, res);
+  const windowStr = getTodayWindowStart();
+  const row = stmts.getRateLimit.get(key);
+  const count = (row && row.window_start === windowStr) ? row.count : 0;
+  const resetTime = new Date(windowStr);
+  resetTime.setDate(resetTime.getDate() + 1);
+
+  res.json({
+    used: count,
+    limit: 3,
+    remaining: Math.max(0, 3 - count),
+    resetsAt: resetTime.toISOString(),
+    scope,
+    isLoggedIn: scope === 'account',
+  });
+}
 
 // ========== MIDDLEWARE ==========
 app.set('trust proxy', 1);
@@ -75,6 +162,7 @@ app.use(cors({
   credentials: true,
 }));
 app.use(express.json({ limit: '10mb' }));
+app.use(cookieParser());
 
 // ========== AUTH MIDDLEWARE ==========
 function requireAuth(req, res, next) {
@@ -96,14 +184,6 @@ const apiLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 200,
   message: { error: 'Too many requests from this IP, please try again later.' },
-  standardHeaders: true,
-  legacyHeaders: false,
-});
-
-const groqLimiter = rateLimit({
-  windowMs: 24 * 60 * 60 * 1000,
-  max: 3,
-  message: { error: 'Daily analysis limit reached (3 per day). Please try again tomorrow.' },
   standardHeaders: true,
   legacyHeaders: false,
 });
@@ -375,7 +455,9 @@ app.get('/api/alpha/sentiment', async (req, res) => {
 });
 
 // ========== GROQ PROXY ==========
-app.post('/api/groq/analyse', groqLimiter, async (req, res) => {
+app.get('/api/groq/limit', groqRateLimitStatus);
+
+app.post('/api/groq/analyse', groqRateLimit, async (req, res) => {
   try {
     if (!process.env.GROQ_KEY) throw new Error('GROQ_KEY not configured');
     const response = await axios.post(
