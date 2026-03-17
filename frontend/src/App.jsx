@@ -314,26 +314,27 @@ export default function StockOracle() {
   const [rateLimitMessage, setRateLimitMessage] = useState('');
   const inputRef = useRef(null);
 
-  // Check if user was rate limited in a previous session
+  // Check rate limit from backend on load and after login
   useEffect(() => {
-    const limited = localStorage.getItem('stockOracleRateLimited');
-    const limitExpiry = localStorage.getItem('stockOracleRateLimitExpiry');
-    
-    if (limited === 'true' && limitExpiry) {
-      const expiryTime = parseInt(limitExpiry);
-      const now = Date.now();
-      
-      if (now < expiryTime) {
-        setRateLimited(true);
-        const hoursLeft = Math.ceil((expiryTime - now) / (1000 * 60 * 60));
-        setRateLimitMessage(`You have used all 3 analyses for today. ${hoursLeft} hours remaining until reset.`);
-      } else {
-        // Expired, clear it
-        localStorage.removeItem('stockOracleRateLimited');
-        localStorage.removeItem('stockOracleRateLimitExpiry');
-      }
-    }
-  }, []);
+    fetch(`${API_BASE}/groq/limit`, { headers: authHeaders(), credentials: 'include' })
+      .then(r => r.ok ? r.json() : null)
+      .then(data => {
+        if (!data) return;
+        if (data.remaining === 0) {
+          setRateLimited(true);
+          const resetTime = new Date(data.resetsAt);
+          const hoursLeft = Math.ceil((resetTime - Date.now()) / (1000 * 60 * 60));
+          const scopeMsg = data.scope === 'account' ? 'your account' : 'this device';
+          setRateLimitMessage(`You have used all 3 analyses for today on ${scopeMsg}. ${hoursLeft} hours until reset.`);
+        } else {
+          setRateLimited(false);
+          // Clear any stale localStorage flags
+          localStorage.removeItem('stockOracleRateLimited');
+          localStorage.removeItem('stockOracleRateLimitExpiry');
+        }
+      })
+      .catch(() => {});
+  }, [user]); // re-check when user logs in/out
 
   const PHASES = [
     "Connecting to market data feeds...",
@@ -349,27 +350,6 @@ export default function StockOracle() {
    const analyse = useCallback(async (ticker) => {
     const t = (ticker || query).toUpperCase().trim();
     if (!t) return;
-    
-    // Check if user is rate limited BEFORE making any API calls
-    const limited = localStorage.getItem('stockOracleRateLimited');
-    const limitExpiry = localStorage.getItem('stockOracleRateLimitExpiry');
-    
-    if (limited === 'true' && limitExpiry) {
-      const expiryTime = parseInt(limitExpiry);
-      const now = Date.now();
-      
-      if (now < expiryTime) {
-        const hoursLeft = Math.ceil((expiryTime - now) / (1000 * 60 * 60));
-        setRateLimited(true);
-        setRateLimitMessage(`You have used all 3 analyses for today. ${hoursLeft} hours remaining until reset.`);
-        setError('Daily limit reached. Please try again tomorrow.');
-        return; // Exit early - NO API CALL IS MADE
-      } else {
-        // Expired, clear it
-        localStorage.removeItem('stockOracleRateLimited');
-        localStorage.removeItem('stockOracleRateLimitExpiry');
-      }
-    }
     
     setLoading(true); setResult(null); setError(null);
     let pi = 0; setPhase(PHASES[0]);
@@ -758,7 +738,8 @@ ${jsonTemplate}`;
 
       const res = await fetch(`${API_BASE}/groq/analyse`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...(getToken() ? { Authorization: `Bearer ${getToken()}` } : {}) },
+        credentials: 'include',
         body: JSON.stringify({
           model: GROQ_MODEL,
           max_tokens: 8000,
@@ -913,16 +894,20 @@ ${jsonTemplate}`;
       clearInterval(pt);
       
       // Check if it's a rate limit error (429)
-      if (e.message && (e.message.includes('429') || e.message.includes('limit reached'))) {
+      if (e.message && (e.message.includes('429') || e.message.includes('limit reached') || e.message.includes('Daily'))) {
         setRateLimited(true);
-        
-        // Calculate expiry (24 hours from now)
-        const expiryTime = Date.now() + (24 * 60 * 60 * 1000);
-        localStorage.setItem('stockOracleRateLimited', 'true');
-        localStorage.setItem('stockOracleRateLimitExpiry', expiryTime.toString());
-        
         setRateLimitMessage('You have used all 3 analyses for today. Please try again tomorrow.');
-        setError('Daily limit reached. Please upgrade for unlimited access.');
+        setError('Daily limit reached. Please try again tomorrow.');
+        // Re-fetch limit status to get accurate reset time and scope
+        fetch(`${API_BASE}/groq/limit`, { headers: authHeaders(), credentials: 'include' })
+          .then(r => r.ok ? r.json() : null)
+          .then(data => {
+            if (!data) return;
+            const resetTime = new Date(data.resetsAt);
+            const hoursLeft = Math.ceil((resetTime - Date.now()) / (1000 * 60 * 60));
+            const scopeMsg = data.scope === 'account' ? 'your account' : 'this device';
+            setRateLimitMessage(`You have used all 3 analyses for today on ${scopeMsg}. ${hoursLeft} hours until reset.`);
+          }).catch(() => {});
       } else {
         const msg = e.message || "Unknown error";
         setError(msg);
@@ -1141,13 +1126,17 @@ ${jsonTemplate}`;
               <p style={{ fontSize: 14, color: "#94a3b8", lineHeight: 1.7, marginBottom: 24 }}>
                 {rateLimitMessage || "You have used all 3 free analyses for today."}
               </p>
-              <button onClick={() => {
-                setRateLimited(false);
-              }} style={{ width: "100%", padding: "12px", borderRadius: 10, background: "#f59e0b", border: "none", color: "#fff", fontSize: 13, fontWeight: 600, cursor: "pointer", marginBottom: 12 }}>
+              {!user && (
+                <button onClick={login} style={{ width: "100%", padding: "12px", borderRadius: 10, background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.15)", color: "#fff", fontSize: 13, fontWeight: 600, cursor: "pointer", marginBottom: 10, display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
+                  <svg height="16" width="16" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+                  Sign in to track limit per account
+                </button>
+              )}
+              <button onClick={() => setRateLimited(false)} style={{ width: "100%", padding: "12px", borderRadius: 10, background: "#f59e0b", border: "none", color: "#fff", fontSize: 13, fontWeight: 600, cursor: "pointer", marginBottom: 12 }}>
                 Close
               </button>
               <div style={{ fontSize: 10, color: "#334155", marginTop: 8 }}>
-                Resets in 24 hours from first analysis
+                Resets daily at midnight
               </div>
             </div>
           </div>
