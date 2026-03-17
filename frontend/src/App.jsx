@@ -304,6 +304,7 @@ function HistorySidebar({ user, onSelect, onClose, visible }) {
 export default function StockOracle() {
   const { user, authLoading, login, logout } = useAuth();
   const [historyOpen, setHistoryOpen] = useState(false);
+  const [dataTab, setDataTab] = useState(0);
   const [query, setQuery] = useState("");
   const [loading, setLoading] = useState(false);
   const [phase, setPhase] = useState("");
@@ -877,6 +878,7 @@ ${jsonTemplate}`;
         parsed.marketCap = "$" + parsed.marketCap;
       }
       setResult(parsed);
+      setDataTab(0);
       // Save to backend history if logged in
       if (getToken()) {
         fetch(`${API_BASE}/history`, {
@@ -1345,258 +1347,181 @@ ${jsonTemplate}`;
               </div>
             )}
 
-            {/* Insider Transactions + Earnings Surprises + SEC Filings row */}
-            <div className="grid-3" style={{ marginBottom: 14 }}>              
-
-{/* Insider Transactions */}
-              <div style={{ padding: "18px 20px", borderRadius: 14, background: "rgba(251,191,36,0.03)", border: "1px solid rgba(251,191,36,0.18)" }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
-                  <div style={{ width: 7, height: 7, borderRadius: "50%", background: "#fbbf24", boxShadow: "0 0 7px #fbbf24" }} />
-                  <div style={{ fontSize: 9, color: "#fbbf24", letterSpacing: "0.18em", textTransform: "uppercase" }}>Insider Transactions</div>
-                </div>
-                <div style={{ fontSize: 10, color: "#475569", lineHeight: 1.6, marginBottom: 10 }}>Executive buy/sell activity in the last 90 days via Finnhub & SEC EDGAR.</div>
-                
-                {(() => {
-                  // Try Finnhub data first (has dollar amounts)
-                  const finnhubTx = result.insiderTransactions?.filter(tx => tx.buyVal > 0 || tx.sellVal > 0) || [];
-                  
-                  if (finnhubTx.length > 0) {
-                    return (
-                      <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
-                        {finnhubTx.map((tx, i) => (
-                          <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "6px 10px", borderRadius: 7, background: tx.action === "BUY" ? "rgba(16,185,129,0.06)" : "rgba(239,68,68,0.06)", border: `1px solid ${tx.action === "BUY" ? "rgba(16,185,129,0.2)" : "rgba(239,68,68,0.2)"}` }}>
-                            <div style={{ fontSize: 10, color: "#94a3b8", flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{tx.name}</div>
-                            <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
-                              <span style={{ fontSize: 9, color: tx.action === "BUY" ? "#10b981" : "#ef4444", fontWeight: 700 }}>{tx.action}</span>
-                              <span style={{ fontSize: 9, color: "#475569" }}>{tx.summary}</span>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    );
-                  }
-                  
-                  // Fallback to SEC Form 4 filings with transaction codes
-                  const secFilings = result.secFilings?.filter(f => f.form === "4") || [];
-                  if (secFilings.length > 0) {
-                    return (
-                      <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
-                        {secFilings.slice(0, 5).map((f, i) => {
-                          // Determine color and icon based on transaction type
-                          let bgColor = "rgba(251,191,36,0.06)";
-                          let borderColor = "rgba(251,191,36,0.2)";
-                          let textColor = "#fbbf24";
-                          let actionIcon = "📄";
-                          let actionText = "Form 4";
-                          
-                          if (f.transactionType === 'purchase') {
-                            bgColor = "rgba(16,185,129,0.06)";
-                            borderColor = "rgba(16,185,129,0.2)";
-                            textColor = "#10b981";
-                            actionIcon = "🟢";
-                            actionText = "PURCHASE";
-                          } else if (f.transactionType === 'sale') {
-                            bgColor = "rgba(239,68,68,0.06)";
-                            borderColor = "rgba(239,68,68,0.2)";
-                            textColor = "#ef4444";
-                            actionIcon = "🔴";
-                            actionText = "SALE";
-                          } else if (f.isCompensatory) {
-                            bgColor = "rgba(245,158,11,0.06)";
-                            borderColor = "rgba(245,158,11,0.2)";
-                            textColor = "#f59e0b";
-                            actionIcon = "🟡";
-                            actionText = "COMP";
-                          }
-                          
-                          return (
-                            <div key={i} style={{ 
-                              display: "flex", 
-                              justifyContent: "space-between", 
-                              alignItems: "center", 
-                              padding: "6px 10px", 
-                              borderRadius: 7, 
-                              background: bgColor, 
-                              border: `1px solid ${borderColor}` 
-                            }}>
-                              <div style={{ fontSize: 10, color: "#94a3b8", flex: 1, display: "flex", alignItems: "center", gap: 4 }}>
-                                <span>{actionIcon}</span>
-                                <span style={{ fontWeight: 700, color: textColor }}>{actionText}</span>
-                                <span style={{ marginLeft: 4 }}>· {f.date}</span>
-                              </div>
-                              <a href={f.url} target="_blank" rel="noopener noreferrer" style={{ 
-                                fontSize: 9, 
-                                color: textColor, 
-                                textDecoration: "none", 
-                                border: `1px solid ${textColor}44`, 
-                                padding: "2px 8px", 
-                                borderRadius: 3 
-                              }}>
-                                View →
-                              </a>
-                            </div>
-                          );
-                        })}
-                        <div style={{ fontSize: 9, color: "#64748b", marginTop: 4, padding: "4px 6px", background: "rgba(100,116,139,0.1)", borderRadius: 4 }}>
-                          ⓘ 🟢 Purchase = Bullish · 🔴 Sale = Bearish · 🟡 Compensation/Options = Neutral
-                        </div>
-                      </div>
-                    );
-                  }
-                  
-                  return <div style={{ fontSize: 11, color: "#334155" }}>No insider transactions found in last 90 days</div>;
-                })()}
-              </div>
-
-              {/* Earnings Surprises */}
-              <div style={{ padding: "18px 20px", borderRadius: 14, background: "rgba(99,102,241,0.03)", border: "1px solid rgba(99,102,241,0.18)" }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
-                  <div style={{ width: 7, height: 7, borderRadius: "50%", background: "#6366f1", boxShadow: "0 0 7px #6366f1" }} />
-                  <div style={{ fontSize: 9, color: "#6366f1", letterSpacing: "0.18em", textTransform: "uppercase" }}>Earnings Surprises</div>
-                </div>
-                <div style={{ fontSize: 10, color: "#475569", lineHeight: 1.6, marginBottom: 10 }}>Last 4 quarters — did the company beat or miss analyst EPS estimates?</div>
-                {result.earningsSurprises?.length > 0 ? (
-                  <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
-                    {result.earningsSurprises.map((e, i) => (
-                      <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "6px 10px", borderRadius: 7, background: e.beat ? "rgba(16,185,129,0.06)" : "rgba(239,68,68,0.06)", border: `1px solid ${e.beat ? "rgba(16,185,129,0.2)" : "rgba(239,68,68,0.2)"}` }}>
-                        <span style={{ fontSize: 10, color: "#64748b" }}>{e.period}</span>
-                        <span style={{ fontSize: 10, fontWeight: 700, color: e.beat ? "#10b981" : "#ef4444" }}>{e.beat ? "BEAT" : "MISS"}</span>
-                        <span style={{ fontSize: 9, color: "#475569" }}>act ${e.actual} vs est ${e.estimate}</span>
-                        <span style={{ fontSize: 9, color: e.beat ? "#10b981" : "#ef4444" }}>{e.surprisePct > 0 ? "+" : ""}{e.surprisePct}%</span>
-                      </div>
+            {/* Data Tabs — Insider / Earnings / SEC / Fear&Greed / Sentiment / Earnings Cal */}
+            {(() => {
+              const tabs = [
+                { label: "Insider", color: "#fbbf24" },
+                { label: "Earnings", color: "#6366f1" },
+                { label: "SEC Filings", color: "#38bdf8" },
+                { label: "Fear & Greed", color: "#ef4444" },
+                { label: "Sentiment", color: "#6366f1" },
+                { label: "Earnings Cal", color: "#fbbf24" },
+              ];
+              return (
+                <div style={{ marginBottom: 14 }}>
+                  {/* Tab bar */}
+                  <div style={{ display: "flex", gap: 4, marginBottom: 0, overflowX: "auto", paddingBottom: 0, scrollbarWidth: "none" }}>
+                    {tabs.map((tab, i) => (
+                      <button key={i} onClick={() => setDataTab(i)} style={{
+                        padding: "7px 14px", borderRadius: "10px 10px 0 0", border: `1px solid ${i === dataTab ? tab.color + "44" : "rgba(255,255,255,0.06)"}`,
+                        borderBottom: i === dataTab ? "1px solid #080f1e" : "1px solid rgba(255,255,255,0.06)",
+                        background: i === dataTab ? "rgba(255,255,255,0.04)" : "transparent",
+                        color: i === dataTab ? tab.color : "#334155", fontSize: 9, fontWeight: 700,
+                        fontFamily: "inherit", letterSpacing: "0.1em", textTransform: "uppercase",
+                        whiteSpace: "nowrap", cursor: "pointer", transition: "all 0.15s",
+                        marginBottom: i === dataTab ? "-1px" : 0, position: "relative", zIndex: i === dataTab ? 1 : 0,
+                      }}>{tab.label}</button>
                     ))}
                   </div>
-                ) : <div style={{ fontSize: 11, color: "#334155" }}>No earnings history available</div>}
-              </div>              {/* SEC Filings */}
-              <div style={{ padding: "18px 20px", borderRadius: 14, background: "rgba(56,189,248,0.03)", border: "1px solid rgba(56,189,248,0.15)" }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
-                  <div style={{ width: 7, height: 7, borderRadius: "50%", background: "#38bdf8", boxShadow: "0 0 7px #38bdf8" }} />
-                  <div style={{ fontSize: 9, color: "#38bdf8", letterSpacing: "0.18em", textTransform: "uppercase" }}>SEC Filings — via EDGAR</div>
-                </div>
-                <div style={{ fontSize: 10, color: "#475569", lineHeight: 1.6, marginBottom: 10 }}>Direct from SEC EDGAR — Form 4 insider trades, 8-K events, 10-Q/10-K reports.</div>
-                {result.secFilings && result.secFilings.length > 0 ? (
-                  <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                    {result.secFilings.slice(0, 5).map((f, i) => {
-                                          let formColor = "#94a3b8";
-                      let formLabel = "Filing";
-                      
-                      if (f.form === "4") {
-                        if (f.transactionType === 'purchase') {
-                          formColor = "#10b981";
-                          formLabel = "Insider BUY";
-                        } else if (f.transactionType === 'sale') {
-                          formColor = "#ef4444";
-                          formLabel = "Insider SELL";
-                        } else if (f.isCompensatory) {
-                          formColor = "#f59e0b";
-                          formLabel = "Insider COMP";
-                        } else {
-                          formColor = "#f59e0b";
-                          formLabel = "Insider Filing";
-                        }
-                      } else if (f.form === "8-K") {
-                        formColor = "#c084fc";
-                        formLabel = "Material Event";
-                      } else if (f.form === "10-Q") {
-                        formColor = "#38bdf8";
-                        formLabel = "Quarterly Report";
-                      } else if (f.form === "10-K") {
-                        formColor = "#10b981";
-                        formLabel = "Annual Report";
-                      }
-                      return (
-                        <div key={i} style={{ padding: "8px 12px", borderRadius: 8, background: "rgba(255,255,255,0.03)", border: "1px solid " + formColor + "22", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10 }}>
-                          <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
-                            <span style={{ fontSize: 10, fontWeight: 800, color: formColor, background: formColor + "18", padding: "2px 7px", borderRadius: 4, whiteSpace: "nowrap" }}>Form {f.form}</span>
-                            <div style={{ minWidth: 0 }}>
-                              <div style={{ fontSize: 10, color: "#64748b", fontWeight: 600 }}>{formLabel}</div>
-                              <div style={{ fontSize: 9, color: "#334155", marginTop: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 180 }}>{f.description || `Filed on ${f.date}`}</div>
-                            </div>
-                          </div>
-                          <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
-                            <span style={{ fontSize: 9, color: "#334155" }}>{f.date}</span>
-                            <a href={f.url} target="_blank" rel="noopener noreferrer" style={{ fontSize: 9, color: "#38bdf8", textDecoration: "none", border: "1px solid #38bdf822", padding: "1px 6px", borderRadius: 3 }}>View →</a>
+
+                  {/* Tab content */}
+                  <div style={{ borderRadius: "0 10px 10px 10px", border: "1px solid rgba(255,255,255,0.06)", background: "rgba(255,255,255,0.02)", padding: "18px 20px" }}>
+
+                    {/* TAB 0 — Insider Transactions */}
+                    {dataTab === 0 && (() => {
+                      const finnhubTx = result.insiderTransactions?.filter(tx => tx.buyVal > 0 || tx.sellVal > 0) || [];
+                      if (finnhubTx.length > 0) return (
+                        <div>
+                          <div style={{ fontSize: 10, color: "#475569", marginBottom: 10 }}>Executive buy/sell activity in the last 90 days via Finnhub & SEC EDGAR.</div>
+                          <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
+                            {finnhubTx.map((tx, i) => (
+                              <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 12px", borderRadius: 8, background: tx.action === "BUY" ? "rgba(16,185,129,0.06)" : "rgba(239,68,68,0.06)", border: `1px solid ${tx.action === "BUY" ? "rgba(16,185,129,0.2)" : "rgba(239,68,68,0.2)"}` }}>
+                                <div style={{ fontSize: 11, color: "#94a3b8", flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{tx.name}</div>
+                                <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
+                                  <span style={{ fontSize: 10, color: tx.action === "BUY" ? "#10b981" : "#ef4444", fontWeight: 700 }}>{tx.action}</span>
+                                  <span style={{ fontSize: 10, color: "#475569" }}>{tx.summary}</span>
+                                </div>
+                              </div>
+                            ))}
                           </div>
                         </div>
                       );
-                    })}
-                  </div>
-                ) : (
-                  <div>
-                    <div style={{ fontSize: 11, color: "#334155" }}>No recent filings found</div>
-                    {result.secFilings && <div style={{ fontSize: 9, color: "#475569", marginTop: 4 }}>Debug: {result.secFilings.length} filings in data but none displayed</div>}
-                  </div>
-                )}
-              </div>
+                      const secForm4 = result.secFilings?.filter(f => f.form === "4") || [];
+                      if (secForm4.length > 0) return (
+                        <div>
+                          <div style={{ fontSize: 10, color: "#475569", marginBottom: 10 }}>SEC Form 4 filings — insider trade disclosures.</div>
+                          <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
+                            {secForm4.slice(0, 8).map((f, i) => (
+                              <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 12px", borderRadius: 8, background: "rgba(251,191,36,0.05)", border: "1px solid rgba(251,191,36,0.15)" }}>
+                                <span style={{ fontSize: 10, color: "#fbbf24", fontWeight: 700 }}>Form 4</span>
+                                <span style={{ fontSize: 10, color: "#64748b" }}>{f.date}</span>
+                                <a href={f.url} target="_blank" rel="noopener noreferrer" style={{ fontSize: 9, color: "#38bdf8", textDecoration: "none", border: "1px solid #38bdf822", padding: "2px 8px", borderRadius: 3 }}>View →</a>
+                              </div>
+                            ))}
+                          </div>
+                          <div style={{ fontSize: 9, color: "#334155", marginTop: 8 }}>🟢 Purchase = Bullish · 🔴 Sale = Bearish · 🟡 Compensation = Neutral</div>
+                        </div>
+                      );
+                      return <div style={{ fontSize: 11, color: "#334155" }}>No insider transactions found in last 90 days</div>;
+                    })()}
 
-              {/* Fear & Greed Index */}
-              <div style={{ padding: "20px 22px", borderRadius: 16, background: "rgba(239,68,68,0.04)", border: "1px solid rgba(239,68,68,0.2)" }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
-                  <div style={{ width: 8, height: 8, borderRadius: "50%", background: "#ef4444", boxShadow: "0 0 8px #ef4444" }} />
-                  <div style={{ fontSize: 9, color: "#ef4444", letterSpacing: "0.18em", textTransform: "uppercase" }}>Fear & Greed Index</div>
-                </div>
-                <div style={{ fontSize: 10, color: "#64748b", lineHeight: 1.7, marginBottom: 12 }}>
-                  Measures overall market psychology from 0 (Extreme Fear) to 100 (Extreme Greed). When the market is fearful, even strong stocks get sold. When greedy, momentum carries everything higher.
-                </div>
-                {result.fearGreed ? (() => {
-                  const v = result.fearGreed.value;
-                  const color = v <= 25 ? "#ef4444" : v <= 45 ? "#f97316" : v <= 55 ? "#f59e0b" : v <= 75 ? "#84cc16" : "#10b981";
-                  return (
-                    <div>
-                      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
-                        <span style={{ fontSize: 28, fontWeight: 800, color }}>{v}</span>
-                        <span style={{ fontSize: 12, fontWeight: 700, color }}>{result.fearGreed.label}</span>
+                    {/* TAB 1 — Earnings Surprises */}
+                    {dataTab === 1 && (
+                      <div>
+                        <div style={{ fontSize: 10, color: "#475569", marginBottom: 10 }}>Last 4 quarters — did the company beat or miss analyst EPS estimates?</div>
+                        {result.earningsSurprises?.length > 0 ? (
+                          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                            {result.earningsSurprises.map((e, i) => (
+                              <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 14px", borderRadius: 8, background: e.beat ? "rgba(16,185,129,0.06)" : "rgba(239,68,68,0.06)", border: `1px solid ${e.beat ? "rgba(16,185,129,0.2)" : "rgba(239,68,68,0.2)"}` }}>
+                                <span style={{ fontSize: 11, color: "#64748b", minWidth: 70 }}>{e.period}</span>
+                                <span style={{ fontSize: 12, fontWeight: 800, color: e.beat ? "#10b981" : "#ef4444" }}>{e.beat ? "BEAT" : "MISS"}</span>
+                                <span style={{ fontSize: 10, color: "#475569" }}>act ${e.actual} vs est ${e.estimate}</span>
+                                <span style={{ fontSize: 11, fontWeight: 700, color: e.beat ? "#10b981" : "#ef4444" }}>{e.surprisePct > 0 ? "+" : ""}{e.surprisePct}%</span>
+                              </div>
+                            ))}
+                          </div>
+                        ) : <div style={{ fontSize: 11, color: "#334155" }}>No earnings history available</div>}
                       </div>
-                      <div style={{ height: 6, borderRadius: 3, background: "rgba(255,255,255,0.06)", overflow: "hidden" }}>
-                        <div style={{ width: v + "%", height: "100%", borderRadius: 3, background: `linear-gradient(90deg, #ef4444, #f97316, #f59e0b, #84cc16, #10b981)` }} />
+                    )}
+
+                    {/* TAB 2 — SEC Filings */}
+                    {dataTab === 2 && (
+                      <div>
+                        <div style={{ fontSize: 10, color: "#475569", marginBottom: 10 }}>Direct from SEC EDGAR — Form 4 insider trades, 8-K events, 10-Q/10-K reports.</div>
+                        {result.secFilings?.length > 0 ? (
+                          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                            {result.secFilings.slice(0, 10).map((f, i) => {
+                              const colors = { "4": "#fbbf24", "8-K": "#c084fc", "10-Q": "#38bdf8", "10-K": "#10b981" };
+                              const labels = { "4": "Insider Filing", "8-K": "Material Event", "10-Q": "Quarterly Report", "10-K": "Annual Report" };
+                              const fc = colors[f.form] || "#94a3b8";
+                              return (
+                                <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 14px", borderRadius: 8, background: "rgba(255,255,255,0.03)", border: `1px solid ${fc}22`, gap: 10 }}>
+                                  <span style={{ fontSize: 10, fontWeight: 800, color: fc, background: fc + "18", padding: "2px 8px", borderRadius: 4, whiteSpace: "nowrap" }}>Form {f.form}</span>
+                                  <span style={{ fontSize: 10, color: "#64748b", flex: 1 }}>{labels[f.form] || "Filing"}</span>
+                                  <span style={{ fontSize: 10, color: "#334155" }}>{f.date}</span>
+                                  <a href={f.url} target="_blank" rel="noopener noreferrer" style={{ fontSize: 9, color: "#38bdf8", textDecoration: "none", border: "1px solid #38bdf822", padding: "2px 8px", borderRadius: 3, whiteSpace: "nowrap" }}>View →</a>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        ) : <div style={{ fontSize: 11, color: "#334155" }}>No recent filings found</div>}
                       </div>
-                    </div>
-                  );
-                })() : <div style={{ fontSize: 11, color: "#334155" }}>Unavailable</div>}
-              </div>
+                    )}
 
-              {/* Alpha Vantage News Sentiment */}
-              <div style={{ padding: "20px 22px", borderRadius: 16, background: "rgba(99,102,241,0.04)", border: "1px solid rgba(99,102,241,0.2)" }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
-                  <div style={{ width: 8, height: 8, borderRadius: "50%", background: "#6366f1", boxShadow: "0 0 8px #6366f1" }} />
-                  <div style={{ fontSize: 9, color: "#6366f1", letterSpacing: "0.18em", textTransform: "uppercase" }}>News Sentiment — Alpha Vantage</div>
-                </div>
-                <div style={{ fontSize: 10, color: "#64748b", lineHeight: 1.7, marginBottom: 12 }}>
-                  AI-scored sentiment across recent news articles for this ticker. Each article is scored from -1 (very bearish) to +1 (very bullish) and averaged into a single signal.
-                </div>
-                {result.avSentiment ? (
-                  <div>
-                    <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
-                      <div style={{ width: 10, height: 10, borderRadius: "50%", background: result.avSentiment.label === "Bullish" ? "#10b981" : result.avSentiment.label === "Bearish" ? "#ef4444" : "#f59e0b" }} />
-                      <span style={{ fontSize: 14, fontWeight: 700, color: result.avSentiment.label === "Bullish" ? "#10b981" : result.avSentiment.label === "Bearish" ? "#ef4444" : "#f59e0b" }}>{result.avSentiment.label}</span>
-                      <span style={{ fontSize: 12, color: "#64748b" }}>{result.avSentiment.score}/100</span>
-                    </div>
-                    <div style={{ fontSize: 10, color: "#334155" }}>Based on {result.avSentiment.articleCount} articles · raw score {result.avSentiment.rawScore}</div>
+                    {/* TAB 3 — Fear & Greed */}
+                    {dataTab === 3 && (
+                      <div>
+                        <div style={{ fontSize: 10, color: "#475569", lineHeight: 1.7, marginBottom: 14 }}>Measures overall market psychology from 0 (Extreme Fear) to 100 (Extreme Greed). When fearful, even strong stocks get sold. When greedy, momentum carries everything higher.</div>
+                        {result.fearGreed ? (() => {
+                          const v = result.fearGreed.score;
+                          const color = v <= 25 ? "#ef4444" : v <= 45 ? "#f97316" : v <= 55 ? "#f59e0b" : v <= 75 ? "#84cc16" : "#10b981";
+                          return (
+                            <div>
+                              <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 14 }}>
+                                <span style={{ fontSize: 48, fontWeight: 900, color }}>{v}</span>
+                                <span style={{ fontSize: 16, fontWeight: 700, color }}>{result.fearGreed.label}</span>
+                              </div>
+                              <div style={{ height: 8, borderRadius: 4, background: "rgba(255,255,255,0.06)", overflow: "hidden", marginBottom: 8 }}>
+                                <div style={{ width: v + "%", height: "100%", borderRadius: 4, background: "linear-gradient(90deg, #ef4444, #f97316, #f59e0b, #84cc16, #10b981)" }} />
+                              </div>
+                              <div style={{ display: "flex", justifyContent: "space-between", fontSize: 9, color: "#334155" }}>
+                                <span>Extreme Fear</span><span>Fear</span><span>Neutral</span><span>Greed</span><span>Extreme Greed</span>
+                              </div>
+                            </div>
+                          );
+                        })() : <div style={{ fontSize: 11, color: "#334155" }}>Unavailable</div>}
+                      </div>
+                    )}
+
+                    {/* TAB 4 — News Sentiment */}
+                    {dataTab === 4 && (
+                      <div>
+                        <div style={{ fontSize: 10, color: "#475569", lineHeight: 1.7, marginBottom: 14 }}>AI-scored sentiment across recent news articles. Each article scored from -1 (very bearish) to +1 (very bullish), averaged into a single signal.</div>
+                        {result.avSentiment ? (
+                          <div>
+                            <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 12 }}>
+                              <div style={{ width: 12, height: 12, borderRadius: "50%", background: result.avSentiment.label === "Bullish" ? "#10b981" : result.avSentiment.label === "Bearish" ? "#ef4444" : "#f59e0b" }} />
+                              <span style={{ fontSize: 24, fontWeight: 800, color: result.avSentiment.label === "Bullish" ? "#10b981" : result.avSentiment.label === "Bearish" ? "#ef4444" : "#f59e0b" }}>{result.avSentiment.label}</span>
+                              <span style={{ fontSize: 14, color: "#64748b" }}>{result.avSentiment.score}/100</span>
+                            </div>
+                            <div style={{ fontSize: 11, color: "#334155" }}>Based on {result.avSentiment.articleCount} articles · raw score {result.avSentiment.rawScore}</div>
+                          </div>
+                        ) : <div style={{ fontSize: 11, color: "#334155" }}>Unavailable for this ticker</div>}
+                      </div>
+                    )}
+
+                    {/* TAB 5 — Earnings Calendar */}
+                    {dataTab === 5 && (
+                      <div>
+                        <div style={{ fontSize: 10, color: "#475569", lineHeight: 1.7, marginBottom: 14 }}>Stocks can move 10–20% on earnings day. Knowing the next earnings date is critical — it changes the entire risk profile of any trade in the weeks leading up to it.</div>
+                        {result.earningsData ? (
+                          <div>
+                            <div style={{ fontSize: 36, fontWeight: 900, color: "#fbbf24", marginBottom: 8 }}>{result.earningsData.date}</div>
+                            <div style={{ fontSize: 12, color: "#64748b", display: "flex", flexDirection: "column", gap: 4 }}>
+                              <div>Quarter: <span style={{ color: "#94a3b8" }}>Q{result.earningsData.quarter} {result.earningsData.year}</span></div>
+                              <div>Days until: <span style={{ color: "#94a3b8" }}>{result.earningsData.daysUntil} days</span></div>
+                              {result.earningsData.epsEstimate != null && <div>EPS Estimate: <span style={{ color: "#94a3b8" }}>${result.earningsData.epsEstimate}</span></div>}
+                              {result.earningsData.revenueEstimate != null && <div>Revenue Est: <span style={{ color: "#94a3b8" }}>${(result.earningsData.revenueEstimate / 1e9).toFixed(2)}B</span></div>}
+                            </div>
+                          </div>
+                        ) : <div style={{ fontSize: 11, color: "#334155" }}>No earnings scheduled in next 90 days</div>}
+                      </div>
+                    )}
+
                   </div>
-                ) : <div style={{ fontSize: 11, color: "#334155" }}>Unavailable for this ticker</div>}
-              </div>
-
-              {/* Finnhub Earnings Calendar */}
-              <div style={{ padding: "20px 22px", borderRadius: 16, background: "rgba(251,191,36,0.04)", border: "1px solid rgba(251,191,36,0.2)" }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
-                  <div style={{ width: 8, height: 8, borderRadius: "50%", background: "#fbbf24", boxShadow: "0 0 8px #fbbf24" }} />
-                  <div style={{ fontSize: 9, color: "#fbbf24", letterSpacing: "0.18em", textTransform: "uppercase" }}>Earnings Calendar — Finnhub</div>
                 </div>
-                <div style={{ fontSize: 10, color: "#64748b", lineHeight: 1.7, marginBottom: 12 }}>
-                  Stocks can move 10–20% on earnings day. Knowing the next earnings date is critical — it changes the entire risk profile of any trade in the weeks leading up to it.
-                </div>
-                {result.earningsData ? (
-                  <div>
-                    <div style={{ fontSize: 20, fontWeight: 800, color: "#fbbf24", marginBottom: 4 }}>{result.earningsData.date}</div>
-                    <div style={{ fontSize: 10, color: "#64748b" }}>
-                      {result.earningsData.epsEstimate != null && <div>EPS Estimate: <span style={{ color: "#94a3b8" }}>${result.earningsData.epsEstimate}</span></div>}
-                      {result.earningsData.revenueEstimate != null && <div>Revenue Est: <span style={{ color: "#94a3b8" }}>${(result.earningsData.revenueEstimate / 1e9).toFixed(2)}B</span></div>}
-                    </div>
-                  </div>
-                ) : <div style={{ fontSize: 11, color: "#334155" }}>No earnings scheduled in next 90 days</div>}
-              </div>
-
-            </div>
+              );
+            })()}
 
             {/* Conviction Scoring Panel */}
             {result.convictionData && (
